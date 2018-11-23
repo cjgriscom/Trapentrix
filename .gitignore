@@ -1,0 +1,7 @@
+/bin
+/.classpath
+/.project
+/.settings
+/.settings/*
+/target/
+/src/main/java/org/java_websocket/*
