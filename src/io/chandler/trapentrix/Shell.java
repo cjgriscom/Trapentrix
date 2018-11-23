@@ -60,7 +60,7 @@ public class Shell {
 		// Undo last move
 		case ("U"):
 			if (moveList.size() == 0) break;
-			String rem = moveList.pop();
+			String rem = moveList.removeLast();
 			String n = "N1";
 			if (rem.startsWith("N")) {
 				n = rem.substring(0, rem.indexOf(" "));
