@@ -2,6 +2,9 @@ package io.chandler.trapentrix;
 
 import static io.chandler.trapentrix.Trapentrix.Piece.*;
 
+import java.util.Arrays;
+import java.util.TreeSet;
+
 public class Trapentrix {
 	
 	public static Orbit grip1_close_low  = new Orbit(F1D, F1g, B1C);
@@ -34,6 +37,31 @@ public class Trapentrix {
 			.add(grip2_close_high, -1)
 			.add(grip2_far_low, -1)
 			.add(grip2_far_high, -1);
+	
+	public String stateAsCycleList() {
+		StringBuilder list = new StringBuilder();
+		TreeSet<Piece> unchecked = new TreeSet<Piece>();
+		unchecked.addAll(Arrays.asList(reference));
+		// Remove unchanged pieces
+		//for (Piece p : reference) if (in(p) == p) accountedFor.remove(p);
+		while (!unchecked.isEmpty()) {
+			Piece original = unchecked.first();
+			Piece now = in(original);
+			unchecked.remove(original);
+			if (!original.equals(now)) {
+				list.insert(0,"\n");
+				while (!now.equals(original)) {
+					list.insert(0,now);
+					list.insert(0," -> ");
+					unchecked.remove(now);
+					now = in(now);
+				}
+				list.insert(0,original);
+			}
+		}
+		return list.toString();
+	}
+	
 	
 	public Trapentrix move(Move m) {
 		for (int oi = 0; oi < m.entered; oi++) {
