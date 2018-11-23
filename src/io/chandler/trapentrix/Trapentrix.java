@@ -35,6 +35,61 @@ public class Trapentrix {
 			.add(grip2_far_low, -1)
 			.add(grip2_far_high, -1);
 	
+	public Trapentrix move(Move m) {
+		for (int oi = 0; oi < m.entered; oi++) {
+			Orbit orbit = m.orbits[oi];
+			int dir = m.directions[oi];
+			int len = orbit.members.length;
+			for (int i = 0; i < len; i++) {
+				orbit.buffer[i] = in(orbit.members[i]);
+			}
+			for (int i = 0; i < len; i++) {
+				setIn(orbit.members[i], orbit.buffer[(i + dir + len) % len]);
+			}
+		}
+		return this;
+	}
+	
+	public String colorString() {
+		String src = this.toString();
+		for (Piece p : reference) src = src.replaceAll(p.name(), " " + p.color + " ");
+		return src;
+	}
+	
+	public String changedString() {
+		String src = this.toString();
+		for (Piece p : reference) src = src.replaceAll(p.name(), in(p).equals(p) ? " . " : " * ");
+		return src;
+	}
+	
+	public String toString() {
+		StringBuilder state = new StringBuilder();
+		state.append("   ").append(in(B1D)).append(" ").append(in(B2D)).append("\n");
+		state.append(" ").append(in(B1C)).append("     ").append(in(B2C)).append("\n");
+		state.append("     ").append(in(B_U)).append("\n");
+		state.append("\n");
+
+		state.append("   ").append(in(B1m)).append(" ").append(in(B2m)).append("\n");
+		state.append(" ").append(in(B1g)).append("     ").append(in(B2g)).append("\n");
+		state.append(" ").append(in(F1g)).append("     ").append(in(F2g)).append("\n");
+		state.append("   ").append(in(F1m)).append(" ").append(in(F2m)).append("\n");
+		state.append("\n");
+		
+		state.append("     ").append(in(F_U)).append("\n");
+		state.append(" ").append(in(F1C)).append("     ").append(in(F2C)).append("\n");
+		state.append("   ").append(in(F1D)).append(" ").append(in(F2D)).append("\n");
+		state.append("\n");
+		return state.toString();
+	}
+	
+	public Piece in(Piece loc) {
+		return state[loc.ordinal()];
+	}
+	
+	public void setIn(Piece loc, Piece newPiece) {
+		state[loc.ordinal()] = newPiece;
+	}
+	
 	public Piece[] reference = Piece.values().clone();
 	public Piece[] state = Piece.values().clone();
 	
