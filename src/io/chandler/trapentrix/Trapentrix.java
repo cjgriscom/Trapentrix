@@ -16,6 +16,9 @@ public class Trapentrix {
 	public static Orbit grip2_close_high = new Orbit(F2C, B2g, B2D);
 	public static Orbit grip2_far_low    = new Orbit(F1D, F2m, B_U);
 	public static Orbit grip2_far_high   = new Orbit(F_U, B2m, B1D);
+	
+	public static Orbit orbitF = new Orbit(F1D, F2D, F1m, F2m, F1g, F2g, B_U, B1C, B2C);
+	public static Orbit orbitB = new Orbit(B1D, B2D, B1m, B2m, B1g, B2g, F_U, F1C, F2C);
 
 	public static Move grip1Down = new Move(4)
 			.add(grip1_close_low, 1)
@@ -57,6 +60,7 @@ public class Trapentrix {
 					now = in(now);
 				}
 				list.insert(0,original);
+				list.insert(0,Trapentrix.orbitF.contains(original) ? "F: " : "B: ");
 			}
 		}
 		return list.toString();
@@ -140,6 +144,10 @@ public class Trapentrix {
 		public final Piece[] buffer;
 		public final Piece[] members;
 		public Orbit(Piece... members) {this.members = members;this.buffer = new Piece[members.length];}
+		public boolean contains(Piece p) {
+			for (Piece ps : members) if (ps == p) return true;
+			return false;
+		}
 	}
 	
 	public static enum Piece {
