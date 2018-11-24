@@ -42,7 +42,7 @@ public class Trapentrix {
 			.add(grip2_far_high, -1);
 	
 	public String stateAsCycleListAlt() {
-		String src = this.stateAsCycleListAlt();
+		String src = this.stateAsCycleList();
 		for (Piece p : reference) src = src.replaceAll(p.name(), p.altName);
 		return src;
 	}
