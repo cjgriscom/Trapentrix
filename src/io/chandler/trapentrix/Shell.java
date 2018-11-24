@@ -6,6 +6,7 @@ import java.util.Scanner;
 public class Shell {
 	static LinkedList<String> moveList = new LinkedList<>();
 	static Trapentrix t = new Trapentrix();
+	static boolean alt = false;
 	
 	public static void main(String[] args) {
 		
@@ -43,6 +44,7 @@ public class Shell {
 			System.out.println("Commands:");
 			System.out.println("    h: Print help");
 			System.out.println("    u: Undo last move");
+			System.out.println("    a: Switch to alt naming");
 			System.out.println("    s: Print puzzle state (named)");
 			System.out.println("    p: Print puzzle state (colors)");
 			System.out.println("    ?: Print puzzle state (what-changed)");
@@ -79,8 +81,14 @@ public class Shell {
 			
 			break;
 		// Print named states
+		case ("A"): 
+			alt = !alt;
+			System.out.println(alt ? "Using alt." : "Not using alt.");
+			break;
+		// Print named states
 		case ("S"): 
-			System.out.print(t.toString());
+			if (alt) System.out.print(t.altString());
+			else System.out.print(t.toString());
 			break;
 		// Print color states
 		case ("P"): 
@@ -92,7 +100,8 @@ public class Shell {
 			break;
 		// Print cycle state list
 		case ("C"): 
-			System.out.print(t.stateAsCycleList());
+			if (alt) System.out.print(t.stateAsCycleListAlt());
+			else System.out.print(t.stateAsCycleList());
 			break;
 		// Print move list
 		case ("M"): 

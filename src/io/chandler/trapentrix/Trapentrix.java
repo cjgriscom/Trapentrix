@@ -41,6 +41,12 @@ public class Trapentrix {
 			.add(grip2_far_low, -1)
 			.add(grip2_far_high, -1);
 	
+	public String stateAsCycleListAlt() {
+		String src = this.stateAsCycleListAlt();
+		for (Piece p : reference) src = src.replaceAll(p.name(), p.altName);
+		return src;
+	}
+	
 	public String stateAsCycleList() {
 		StringBuilder list = new StringBuilder();
 		TreeSet<Piece> unchecked = new TreeSet<Piece>();
@@ -80,6 +86,12 @@ public class Trapentrix {
 			}
 		}
 		return this;
+	}
+	
+	public String altString() {
+		String src = this.toString();
+		for (Piece p : reference) src = src.replaceAll(p.name(), p.altName);
+		return src;
 	}
 	
 	public String colorString() {
@@ -151,28 +163,30 @@ public class Trapentrix {
 	}
 	
 	public static enum Piece {
-		F_U('r'),
-		F1D('r'),
-		F1C('r'),
-		F2D('r'),
-		F2C('r'),
-		F1m('b'),
-		F1g('b'),
-		F2m('g'),
-		F2g('g'),
-		B1m('b'),
-		B1g('b'),
-		B2m('g'),
-		B2g('g'),
-		B_U('o'),
-		B1D('o'),
-		B1C('o'),
-		B2D('o'),
-		B2C('o'),
+		F_U('r', "F1"),
+		F1D('r', "C3"),
+		F1C('r', "D1"),
+		F2D('r', "C2"),
+		F2C('r', "E1"),
+		F1m('b', "A2"),
+		F1g('b', "A3"),
+		F2m('g', "B3"),
+		F2g('g', "B2"),
+		B1m('b', "E3"),
+		B1g('b', "E2"),
+		B2m('g', "D2"),
+		B2g('g', "D3"),
+		B_U('o', "C1"),
+		B1D('o', "F2"),
+		B1C('o', "B1"),
+		B2D('o', "F3"),
+		B2C('o', "A1"),
 		;
 		final char color;
-		Piece(char color) {
+		final String altName;
+		Piece(char color, String altName) {
 			this.color = color;
+			this.altName = altName;
 		}
 	}
 }
