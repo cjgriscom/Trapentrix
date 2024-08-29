@@ -2,11 +2,16 @@ package io.chandler.trapentrix;
 
 import java.util.LinkedList;
 import java.util.Scanner;
+import java.util.Stack;
+
+import io.chandler.trapentrix.Trapentrix.Move;
 
 public class Shell {
 	static LinkedList<String> moveList = new LinkedList<>();
 	static Trapentrix t = new Trapentrix();
 	static boolean alt = false;
+	static int grip1Offset = 0;
+	static int grip2Offset = 0;
 	
 	public static void main(String[] args) {
 		
@@ -14,7 +19,14 @@ public class Shell {
 		Scanner in = new Scanner(System.in);
 		
 		while (true) {
-			System.out.print("[" + moveList.size() + "]> ");
+			grip1Offset %= 3;
+			grip2Offset %= 3;
+			char g1o = '_', g2o = '_';
+			if (grip1Offset == 1) g1o = 'U';
+			if (grip2Offset == 1) g2o = 'U';
+			if (grip1Offset == 2) g1o = 'D';
+			if (grip2Offset == 2) g2o = 'D';
+			System.out.print("[" + moveList.size() + " " + g1o + "" + g2o + "]> ");
 			String cmd = in.nextLine().trim().toUpperCase();
 			if (cmd.startsWith("G") || cmd.startsWith("N")) moveList.add(cmd);
 			handle(cmd);
@@ -50,6 +62,7 @@ public class Shell {
 			System.out.println("    ?: Print puzzle state (what-changed)");
 			System.out.println("    c: Print cycle state");
 			System.out.println("    m: Print move list");
+			System.out.println("    ss{n}: Attempt solve in max n moves");
 			System.out.println("    rrr: Reset");
 			System.out.println("Puzzle Moves:");
 			System.out.println(" * Accepts space-delimited sequences i.e. 'G1U G2D'");
@@ -113,14 +126,47 @@ public class Shell {
 			System.out.println("Reset.");
 			moveList.clear();
 			t = new Trapentrix();
+			grip1Offset = 0;
+			grip2Offset = 0;
 			break;
 		// Moves
-		case ("G1U"): t.move(Trapentrix.grip1Up); break;
-		case ("G1D"): t.move(Trapentrix.grip1Down); break;
-		case ("G2U"): t.move(Trapentrix.grip2Up); break;
-		case ("G2D"): t.move(Trapentrix.grip2Down); break;
+		case ("G1U"): t.move(Trapentrix.grip1Up); grip1Offset += 1; break;
+		case ("G1D"): t.move(Trapentrix.grip1Down); grip1Offset += 2; break;
+		case ("G2U"): t.move(Trapentrix.grip2Up); grip2Offset += 1; break;
+		case ("G2D"): t.move(Trapentrix.grip2Down); grip2Offset += 2; break;
 		default:
-			System.out.println("Unknown command");
+			if (cmd.startsWith("SS")) {
+				t.trySolve(Integer.parseInt(cmd.substring(2)), (moves) -> {
+					moves = (Stack<Move>) moves.clone();
+					int i = 0;
+					int o = 0;
+					System.out.println("Forward in alt(1) notation:");
+					while (!moves.isEmpty()) {
+						Move m = moves.pop();
+						if (m == Trapentrix.grip1Down) {
+							System.out.print("U");
+						}
+						if (m == Trapentrix.grip2Down) {
+							if (i == 0) {System.out.print("X");o=1;}
+							System.out.print("U");
+						}
+						if (m == Trapentrix.grip1Up) {
+							System.out.print("D");
+						}
+						if (m == Trapentrix.grip2Up) {
+							if (i == 0) {System.out.print("X");o=1;}
+							System.out.print("D");
+						}
+						i++;
+						if ((o+i) % 2 == 0) System.out.print(" ");
+					}
+					System.out.println();
+					System.out.println(i + " moves");
+					return false; // Keep looking
+				});
+			} else {
+				System.out.println("Unknown command");
+			}
 		}
 	}
 }

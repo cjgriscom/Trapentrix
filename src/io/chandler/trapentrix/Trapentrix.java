@@ -1,9 +1,28 @@
 package io.chandler.trapentrix;
 
-import static io.chandler.trapentrix.Trapentrix.Piece.*;
+import static io.chandler.trapentrix.Trapentrix.Piece.B1C;
+import static io.chandler.trapentrix.Trapentrix.Piece.B1D;
+import static io.chandler.trapentrix.Trapentrix.Piece.B1g;
+import static io.chandler.trapentrix.Trapentrix.Piece.B1m;
+import static io.chandler.trapentrix.Trapentrix.Piece.B2C;
+import static io.chandler.trapentrix.Trapentrix.Piece.B2D;
+import static io.chandler.trapentrix.Trapentrix.Piece.B2g;
+import static io.chandler.trapentrix.Trapentrix.Piece.B2m;
+import static io.chandler.trapentrix.Trapentrix.Piece.B_U;
+import static io.chandler.trapentrix.Trapentrix.Piece.F1C;
+import static io.chandler.trapentrix.Trapentrix.Piece.F1D;
+import static io.chandler.trapentrix.Trapentrix.Piece.F1g;
+import static io.chandler.trapentrix.Trapentrix.Piece.F1m;
+import static io.chandler.trapentrix.Trapentrix.Piece.F2C;
+import static io.chandler.trapentrix.Trapentrix.Piece.F2D;
+import static io.chandler.trapentrix.Trapentrix.Piece.F2g;
+import static io.chandler.trapentrix.Trapentrix.Piece.F2m;
+import static io.chandler.trapentrix.Trapentrix.Piece.F_U;
 
 import java.util.Arrays;
+import java.util.Stack;
 import java.util.TreeSet;
+import java.util.function.Function;
 
 public class Trapentrix {
 	
@@ -20,22 +39,22 @@ public class Trapentrix {
 	public static Orbit orbitF = new Orbit(F1D, F2D, F1m, F2m, F1g, F2g, B_U, B1C, B2C);
 	public static Orbit orbitB = new Orbit(B1D, B2D, B1m, B2m, B1g, B2g, F_U, F1C, F2C);
 
-	public static Move grip1Down = new Move(4)
+	public static Move grip1Down = new Move(4, -1, 0)
 			.add(grip1_close_low, 1)
 			.add(grip1_close_high, 1)
 			.add(grip1_far_low, 1)
 			.add(grip1_far_high, 1);
-	public static Move grip1Up = new Move(4)
+	public static Move grip1Up = new Move(4, 1, 0)
 			.add(grip1_close_low, -1)
 			.add(grip1_close_high, -1)
 			.add(grip1_far_low, -1)
 			.add(grip1_far_high, -1);
-	public static Move grip2Down = new Move(4)
+	public static Move grip2Down = new Move(4, 0, -1)
 			.add(grip2_close_low, 1)
 			.add(grip2_close_high, 1)
 			.add(grip2_far_low, 1)
 			.add(grip2_far_high, 1);
-	public static Move grip2Up = new Move(4)
+	public static Move grip2Up = new Move(4, 0, 1)
 			.add(grip2_close_low, -1)
 			.add(grip2_close_high, -1)
 			.add(grip2_far_low, -1)
@@ -72,6 +91,42 @@ public class Trapentrix {
 		return list.toString();
 	}
 	
+	private Stack<Move> solveState = new Stack<>();
+	private Function<Stack<Move>, Boolean> onSolutionFound;
+	public Stack<Move> trySolve(int maxDepth, Function<Stack<Move>, Boolean> onSolutionFound) {
+		solveState.clear();
+		this.onSolutionFound = onSolutionFound;
+		if (solve(maxDepth)) return solveState;
+		return null;
+	}
+	private boolean solve(int maxDepth) {
+		if (solved() && onSolutionFound.apply(solveState)) return true;
+		if (maxDepth == 0) return false;
+		maxDepth--;
+		if (solveState.isEmpty() || solveState.peek() == grip2Down || solveState.peek() == grip2Up) {
+			move(grip1Down);
+			solveState.push(grip1Down);
+			if (solve(maxDepth)) return true;
+			move(grip1Down);
+			solveState.pop(); 
+			solveState.push(grip1Up);
+			if (solve(maxDepth)) return true;
+			move(grip1Down);
+			solveState.pop(); 
+		}
+		if (solveState.isEmpty() || solveState.peek() == grip1Down || solveState.peek() == grip1Up) {
+			move(grip2Down);
+			solveState.push(grip2Down);
+			if (solve(maxDepth)) return true;
+			move(grip2Down);
+			solveState.pop(); 
+			solveState.push(grip2Up);
+			if (solve(maxDepth)) return true;
+			move(grip2Down);
+			solveState.pop(); 
+		}
+		return false;
+	}
 	
 	public Trapentrix move(Move m) {
 		for (int oi = 0; oi < m.entered; oi++) {
@@ -85,6 +140,8 @@ public class Trapentrix {
 				setIn(orbit.members[i], orbit.buffer[(i + dir + len) % len]);
 			}
 		}
+		this.g1Rotations += m.g1Rot;
+		this.g2Rotations += m.g2Rot;
 		return this;
 	}
 	
@@ -134,16 +191,28 @@ public class Trapentrix {
 		state[loc.ordinal()] = newPiece;
 	}
 	
-	public Piece[] reference = Piece.values().clone();
+	public boolean solved() {
+		if (Math.abs(g1Rotations) % 3 != 0 || Math.abs(g2Rotations) % 3 != 0) return false;
+		for (int i= 0; i < reference.length; i++) {
+			if (!reference[i].equals(state[i])) return false;
+		}
+		return true;
+	}
+	
+	public static final Piece[] reference = Piece.values().clone();
 	public Piece[] state = Piece.values().clone();
+	public int g1Rotations = 0;
+	public int g2Rotations = 0;
 	
 	public static class Move {
 		public final Orbit[] orbits;
 		public final int[] directions;
 		private int entered = 0;
-		public Move(int num) {
+		private final int g1Rot, g2Rot;
+		public Move(int num, int g1Rot, int g2Rot) {
 			this.orbits = new Orbit[num];
 			this.directions = new int[num];
+			this.g1Rot = g1Rot; this.g2Rot = g2Rot;
 		}
 		public Move add(Orbit o, int dir) {
 			orbits[entered] = o;
@@ -163,24 +232,24 @@ public class Trapentrix {
 	}
 	
 	public static enum Piece {
-		F_U('r', "F1"),
-		F1D('r', "C3"),
-		F1C('r', "D1"),
-		F2D('r', "C2"),
-		F2C('r', "E1"),
-		F1m('b', "A2"),
-		F1g('b', "A3"),
-		F2m('g', "B3"),
-		F2g('g', "B2"),
-		B1m('b', "E3"),
-		B1g('b', "E2"),
-		B2m('g', "D2"),
-		B2g('g', "D3"),
-		B_U('o', "C1"),
-		B1D('o', "F2"),
-		B1C('o', "B1"),
-		B2D('o', "F3"),
-		B2C('o', "A1"),
+		F_U('r', " "),
+		F1D('r', "A"),
+		F1C('r', " "),
+		F2D('r', "B"),
+		F2C('r', " "),
+		F1m('b', "M"),
+		F1g('b', "L"),
+		F2m('g', "N"),
+		F2g('g', "R"),
+		B1m('b', " "),
+		B1g('b', " "),
+		B2m('g', " "),
+		B2g('g', " "),
+		B_U('o', "Y"),
+		B1D('o', " "),
+		B1C('o', "X"),
+		B2D('o', " "),
+		B2C('o', "Z"),
 		;
 		final char color;
 		final String altName;
