@@ -12,7 +12,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.BiConsumer;
-import java.util.function.Consumer;
 
 public class GAP {
     // M6 / Eliac: [ (1,2,3,4)(5,6,7,8), (1,5)(2,9)(4,10) ]
@@ -34,6 +33,22 @@ public class GAP {
             if (obj == null || getClass() != obj.getClass()) return false;
             State state1 = (State) obj;
             return Arrays.equals(state, state1.state);
+        }
+    }
+
+    public static class Generator {
+        int[][][] generator;
+        public Generator(int[][][] generator) {
+            this.generator = generator;
+        }
+        public int hashCode() {
+            return Arrays.deepHashCode(generator);
+        }
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
+            Generator generator1 = (Generator) obj;
+            return Arrays.deepEquals(generator, generator1.generator);
         }
     }
 
@@ -126,8 +141,8 @@ public class GAP {
         System.out.println("Generator candidates: " + generatorCandidates.size());
         System.out.println("Generator candidates2: " + generatorCandidates2.size());
 
-        // Make a list of generator pairs
-        ArrayList<int[][][]> generatorPairs = new ArrayList<>();
+        // Make a list of generator pairs : src index
+        HashMap<Generator, Integer> generatorPairs = new HashMap<>();
 
         // Loop thru pairs of generator candidates
         for (int i = 0; i < generatorCandidates.size(); i++) {
@@ -141,28 +156,44 @@ public class GAP {
 
                 if (!cyclesContainsAllElements(gap.nElements, aCycles, bCycles)) continue;
 
+                int[][][] generator = new int[][][] { aCycles, bCycles };
+                generator = renumberGenerators(generator);
+                if (generatorPairs.containsKey(new Generator(generator))) continue;
+
                 String composite = "[" + cyclesToNotation(aCycles) + "," + cyclesToNotation(bCycles) + "]";
                 GAP compositeGAP = new GAP(composite);
                 compositeGAP.exploreStates(false, null);
                 int order = compositeGAP.order();
                 if (order == gap.order()) {
-                    generatorPairs.add(new int[][][] { aCycles, bCycles });
+                    for (int[][][] iso : genIsomorphisms(generator)) {
+                        generatorPairs.put(new Generator(iso), i * generatorCandidates.size() + j);
+                    }
                 }
             }
         }
 
+        HashMap<Integer, Generator> filteredGeneratorPairs = new HashMap<>();
+        for (Entry<Generator, Integer> entry : generatorPairs.entrySet()) {
+            filteredGeneratorPairs.put(entry.getValue(), entry.getKey());
+        }
+        System.out.println("Removed isomorphisms: " + filteredGeneratorPairs.size());
+
+        ArrayList<int[][][]> attempt2Removal = new ArrayList<>();
+        for (Generator g : filteredGeneratorPairs.values()) {
+            attempt2Removal.add(g.generator);
+        }
         // Remove isomorphisms
-        int pairs = generatorPairs.size();
+        int pairs = filteredGeneratorPairs.size();
         System.out.println("Discovered generator pairs: " + pairs);
-        Iterator<int[][][]> outerIter = generatorPairs.iterator();
+        Iterator<int[][][]> outerIter = attempt2Removal.iterator();
         int counter = 0;
         int lastPercent = 0;
         for (; outerIter.hasNext();) {
             counter++;
             int[][][] pair = outerIter.next();
-            for (int i = 0; i < generatorPairs.size(); i++) {
-                int[][][] otherPair = generatorPairs.get(i);
-                if (pair != otherPair && isIsomorphic_Simple(pair, otherPair)) {
+            for (int i = 0; i < attempt2Removal.size(); i++) {
+                int[][][] otherPair = attempt2Removal.get(i);
+                if (pair != otherPair && isIsomorphic_Complete(pair, otherPair)) {
                     outerIter.remove();
                     break;
                 }
@@ -173,10 +204,10 @@ public class GAP {
                 lastPercent = percent;
             }
         }
-        System.out.println("Removed isomorphisms: " + generatorPairs.size());
+        System.out.println("Removed isomorphisms: " + attempt2Removal.size());
 
         // Print generator pairs
-        for (int[][][] pair : generatorPairs) {
+        for (int[][][] pair : attempt2Removal) {
             System.out.println(renumberGeneratorNotation("["+cyclesToNotation(pair[0]) + "," + cyclesToNotation(pair[1]) + "]"));
         }
     }
@@ -419,6 +450,23 @@ public class GAP {
             checks.add(renumberGenerators(aPerm));
         }
         return checks;
+    }
+
+    private static boolean isIsomorphic_Complete(int[][][] a, int[][][] b) {
+        // Odd-numbered cycles can be repeated N-1 times, even ones can be reversed once
+        // So we need to check all combinations of cycle repetitions and reversals
+        // Also, we need to try shuffling the permutations of each cycle
+
+        for (int[][][] aPerm : Permu.applyGeneratorPermutationsAndRotations(a)) {
+            int[][][] aRenumb = renumberGenerators(aPerm);
+            for (int[][][] bPerm : Permu.applyGeneratorPermutationsAndRotations(b)) {
+                int[][][] bRenumb = renumberGenerators(bPerm);
+                if (Arrays.deepEquals(aRenumb, bRenumb)) {
+                    return true;
+                }
+            }
+        }   
+        return false;
     }
 
 
