@@ -9,20 +9,21 @@ import io.chandler.gap.GroupExplorer.Generator;
 import io.chandler.gap.GroupExplorer.State;
 
 public class IcosahedralGenerators {
-	
-	static final int[][] icosahedronVertexSymmetries = new int[][] {
-		{1, 2,12}, {3, 5, 9}, {8, 10, 4}, {6, 7, 11},
-		{2, 3,12}, {4, 1,10}, {9,  6, 5}, {7, 8, 11},
-		{3, 4,12}, {5, 2, 6}, {10, 7, 1}, {8, 9, 11},
-		{4, 5,12}, {1, 3, 7}, {6,  8, 2}, {9, 10,11},
-		{5, 1,12}, {2, 4, 8}, {7,  9, 3}, {10, 6,11},
+    
+    static final int[][] icosahedronVertexSymmetries = new int[][] {
+        // Shallow    Deep       Deep      Shallow
+        {1, 2,12}, {3, 5, 9}, {8, 10, 4}, {6, 7, 11},
+        {2, 3,12}, {4, 1,10}, {9,  6, 5}, {7, 8, 11},
+        {3, 4,12}, {5, 2, 6}, {10, 7, 1}, {8, 9, 11},
+        {4, 5,12}, {1, 3, 7}, {6,  8, 2}, {9, 10,11},
+        {5, 1,12}, {2, 4, 8}, {7,  9, 3}, {10, 6,11},
 
-		{4, 5, 7}, {6, 8,12}, {1, 3,11}, {2, 9,10},
-		{3, 4, 6}, {10,7,12}, {5, 2,11}, {1, 8, 9},
-		{2, 3,10}, {9, 6,12}, {4, 1,11}, {5, 7, 8},
-		{1, 2, 9}, {8,10,12}, {3, 5,11}, {4, 6, 7},
-		{5, 1, 8}, {7, 9,12}, {2, 4,11}, {3,10, 6}
-	};
+        {4, 5, 7}, {6, 8,12}, {1, 3,11}, {2, 9,10},
+        {3, 4, 6}, {10,7,12}, {5, 2,11}, {1, 8, 9},
+        {2, 3,10}, {9, 6,12}, {4, 1,11}, {5, 7, 8},
+        {1, 2, 9}, {8,10,12}, {3, 5,11}, {4, 6, 7},
+        {5, 1, 8}, {7, 9,12}, {2, 4,11}, {3,10, 6}
+    };
 
     public static void main(String[] args) {
         M12_Deep_and_Shallow_Icosahedron();
@@ -50,33 +51,39 @@ public class IcosahedralGenerators {
         boolean foundMatch = false;
         int checkedIcosahedralGenerators = 0;
         HashMap<String, Integer> matchingGenerators = new HashMap<>();
+
+        // Start with 3 fixed orbits
+        int[][][] generator = new int[2][][];
+        generator[0] = new int[][] {
+            icosahedronVertexSymmetries[0],
+            icosahedronVertexSymmetries[1],
+            {11,8,7} // or {7,8,11}
+        };
+
+        // Loop through each possible combination of 3 vertices from the icosahedron as generator 1
         for (int[] c : Permu.generateCombinations(icosahedronVertexSymmetries.length, 3)) {
-            int[][][] generator = new int[2][][];
-            generator[0] = new int[][] {
-                icosahedronVertexSymmetries[0],
-                icosahedronVertexSymmetries[1],
-                {11,8,7}
-            };
+            
             generator[1] = new int[][] {
                 icosahedronVertexSymmetries[c[0]],
                 icosahedronVertexSymmetries[c[1]],
                 icosahedronVertexSymmetries[c[2]]
             };
 
+            // Fix first generator and test variations of second generator
             int startAtGeneratorIndex = 1;
 
-			for (int[][][] genCandidate : CycleInverter.generateInvertedCycles(startAtGeneratorIndex, generator)) {
-				Generator g = new Generator(GroupExplorer.renumberGenerators(genCandidate));
-				checkedIcosahedralGenerators++;
-				if (generatorPairs.containsKey(g)) {
-					if (!foundMatch) {
-						System.out.println("Found a match! #" + generatorPairs.get(g));
-						System.out.println(GroupExplorer.generatorsToString(genCandidate));
-						foundMatch = true;
-					}
-					matchingGenerators.put(GroupExplorer.generatorsToString(genCandidate), generatorPairs.get(g));
-				}
-			}
+            for (int[][][] genCandidate : CycleInverter.generateInvertedCycles(startAtGeneratorIndex, generator)) {
+                Generator g = new Generator(GroupExplorer.renumberGenerators(genCandidate));
+                checkedIcosahedralGenerators++;
+                if (generatorPairs.containsKey(g)) {
+                    if (!foundMatch) {
+                        System.out.println("Found a match! #" + generatorPairs.get(g));
+                        System.out.println(GroupExplorer.generatorsToString(genCandidate));
+                        foundMatch = true;
+                    }
+                    matchingGenerators.put(GroupExplorer.generatorsToString(genCandidate), generatorPairs.get(g));
+                }
+            }
         }
 
         System.out.println("Checked " + checkedIcosahedralGenerators + " icosahedral generators");

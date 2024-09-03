@@ -3,5 +3,5 @@
 /.project
 /.settings
 /.settings/*
+/.vscode/*
 /target/
-/src/main/java/org/java_websocket/*
