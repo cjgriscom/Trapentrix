@@ -1,12 +1,12 @@
-package io.chandler.trapentrix;
+package io.chandler.gap;
 
 import java.util.LinkedList;
 import java.util.Scanner;
 import java.util.Stack;
 
-import io.chandler.trapentrix.Trapentrix.Move;
+import io.chandler.gap.Trapentrix.Move;
 
-public class Shell {
+public class TrapentrixExplorer {
 	static LinkedList<String> moveList = new LinkedList<>();
 	static Trapentrix t = new Trapentrix();
 	static boolean alt = false;
@@ -33,6 +33,7 @@ public class Shell {
 		}
 	}
 	
+	@SuppressWarnings("unchecked")
 	public static void handle(String cmd) {
 		if (cmd.contains(" ")) {
 			String[] seq = cmd.split(" ");
