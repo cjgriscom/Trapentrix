@@ -10,9 +10,9 @@ public class CycleInverter {
      * @param generator the original generator as a three-dimensional integer array
      * @return a list of generators with all possible combinations of inverted cycles
      */
-    public static List<int[][][]> generateInvertedCycles(int[][][] generator) {
+    public static List<int[][][]> generateInvertedCycles(int startIndex, int[][][] generator) {
         List<int[][][]> result = new ArrayList<>();
-        generateInvertedCyclesHelper(generator, 0, 0, result, deepCopy(generator));
+        generateInvertedCyclesHelper(generator, startIndex, 0, result, deepCopy(generator));
         return result;
     }
 
@@ -82,7 +82,7 @@ public class CycleInverter {
             {{3, 4,5}}
         };
 
-        List<int[][][]> combinations = generateInvertedCycles(generator);
+        List<int[][][]> combinations = generateInvertedCycles(0, generator);
         for (int[][][] combination : combinations) {
             System.out.println(java.util.Arrays.deepToString(combination));
         }
