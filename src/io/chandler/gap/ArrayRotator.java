@@ -1,4 +1,4 @@
-package io.chandler.trapentrix;
+package io.chandler.gap;
 
 import java.util.function.Consumer;
 

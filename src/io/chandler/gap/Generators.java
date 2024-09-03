@@ -1,4 +1,4 @@
-package io.chandler.trapentrix;
+package io.chandler.gap;
 
 public class Generators {
 	// https://www.sciencedirect.com/science/article/pii/0012365X9390222F?ref=cra_js_challenge&fr=RR-1

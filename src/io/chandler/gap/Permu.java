@@ -1,4 +1,4 @@
-package io.chandler.trapentrix;
+package io.chandler.gap;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,7 +20,7 @@ public class Permu {
         };
         List<int[][][]> isomorphs = applyGeneratorPermutationsAndRotations(generator);
         for (int[][][] isomorph : isomorphs) {
-            System.out.println(GAP.generatorsToString(GAP.renumberGenerators(isomorph)));
+            System.out.println(GroupExplorer.generatorsToString(GroupExplorer.renumberGenerators(isomorph)));
         }
     }
 
@@ -136,14 +136,14 @@ public class Permu {
             int[] permutationA = permutationsA.get(permutationIndex);
             int repA = i / permutationsA.size();
             
-            int[][] aRep = GAP.repeatOperation(a, repA);
+            int[][] aRep = GroupExplorer.repeatOperation(a, repA);
             int[][] aModified = new int[a.length][cycleOrderA];
             for (int j = 0; j < a.length; j++) {
                 int[] cycleSrc = aRep[permutationA[j] - 1];
                 aModified[j] = cycleSrc;
             }
             result.add(aModified);
-            result.add(GAP.reverseOperation(aModified));
+            result.add(GroupExplorer.reverseOperation(aModified));
         }
         return result;
     }

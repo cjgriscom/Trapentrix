@@ -1,4 +1,4 @@
-package io.chandler.trapentrix;
+package io.chandler.gap;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -8,7 +8,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.BiConsumer;
 
-public class GAP {
+public class GroupExplorer {
     
     private Map<State, Boolean> stateMap = new HashMap<>();
     private int[] elements;
@@ -47,7 +47,7 @@ public class GAP {
         }
     }
 
-    public GAP(String cycleNotation) {
+    public GroupExplorer(String cycleNotation) {
         for (String s : cycleNotation.split("\\(|\\)|,|\\[|\\]")) {
             if (!s.trim().isEmpty()) nElements = Math.max(nElements, Integer.parseInt(s.trim()));
         }

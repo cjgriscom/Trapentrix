@@ -1,4 +1,4 @@
-package io.chandler.trapentrix;
+package io.chandler.gap;
 
 import java.io.File;
 import java.util.List;
@@ -12,7 +12,7 @@ public class FilterPentagonalM11 {
 		int qualified = 0;
         while (scanner.hasNextLine()) {
             String line = scanner.nextLine();
-            List<int[][]> operations = GAP.parseOperations(line);
+            List<int[][]> operations = GroupExplorer.parseOperations(line);
             int[][] op2 = operations.get(2);
 			boolean disqualify = false;
 			for (int[] cycle : op2) {
