@@ -26,7 +26,73 @@ public class IcosahedralGenerators {
     };
 
     public static void main(String[] args) {
-        M12_Deep_and_Shallow_Icosahedron();
+        M11_Slice_and_Vertex_Dodec();
+        //M12_Deep_and_Shallow_Icosahedron();
+    }
+
+    public static void M11_Slice_and_Vertex_Dodec() {
+        
+        GroupExplorer group = new GroupExplorer(Generators.m11);
+        
+        ArrayList<State> generatorCandidates = new ArrayList<>();
+        ArrayList<State> generatorCandidates2 = new ArrayList<>();
+        exploreGroup(group, (state, cycleDescription) -> {
+           
+            if (cycleDescription.equals("dual 5-cycles")) {
+                if (Math.random() > 0.95) generatorCandidates.add(state);
+            }
+            if (cycleDescription.equals("triple 3-cycles")) {
+                if (Math.random() > 0.9) generatorCandidates2.add(state);
+            }
+
+        });
+        
+        HashMap<Generator, Integer> generatorPairs = findGeneratorPairs(group, generatorCandidates, generatorCandidates2);
+
+        reportReducedIsomorphisms(generatorPairs);
+
+        System.out.println("Searching for icosahedral generators");
+
+        boolean foundMatch = false;
+        int checkedIcosahedralGenerators = 0;
+        HashMap<String, Integer> matchingGenerators = new HashMap<>();
+
+        // Start with slice moves
+        int[][][] generator = new int[2][][];
+        generator[0] = new int[][] {
+            {1,2,3,4,5},
+            {6,7,8,9,10}
+        };
+
+        // Loop through each possible combination of 3 vertices from the icosahedron as generator 1
+        for (int[] c : Permu.generateCombinations(icosahedronVertexSymmetries.length, 3)) {
+            
+            generator[1] = new int[][] {
+                icosahedronVertexSymmetries[c[0]],
+                icosahedronVertexSymmetries[c[1]],
+                icosahedronVertexSymmetries[c[2]]
+            };
+
+            // Fix first generator and test variations of second generator
+            int startAtGeneratorIndex = 1;
+
+            for (int[][][] genCandidate : CycleInverter.generateInvertedCycles(startAtGeneratorIndex, generator)) {
+                Generator g = new Generator(GroupExplorer.renumberGenerators(genCandidate));
+                checkedIcosahedralGenerators++;
+                if (generatorPairs.containsKey(g)) {
+                    if (!foundMatch) {
+                        System.out.println("Found a match! #" + generatorPairs.get(g));
+                        System.out.println(GroupExplorer.generatorsToString(genCandidate));
+                        foundMatch = true;
+                    }
+                    matchingGenerators.put(GroupExplorer.generatorsToString(genCandidate), generatorPairs.get(g));
+                }
+            }
+        }
+
+        System.out.println("Checked " + checkedIcosahedralGenerators + " icosahedral generators");
+        
+        reportMatchingGenerators(matchingGenerators);
     }
 
     public static void M12_Deep_and_Shallow_Icosahedron() {
@@ -47,6 +113,10 @@ public class IcosahedralGenerators {
         });
         
         HashMap<Generator, Integer> generatorPairs = findGeneratorPairs(group, generatorCandidates, generatorCandidates2);
+
+        reportReducedIsomorphisms(generatorPairs);
+
+        System.out.println("Searching for icosahedral generators");
 
         boolean foundMatch = false;
         int checkedIcosahedralGenerators = 0;
@@ -89,7 +159,6 @@ public class IcosahedralGenerators {
         System.out.println("Checked " + checkedIcosahedralGenerators + " icosahedral generators");
         
         reportMatchingGenerators(matchingGenerators);
-        reportReducedIsomorphisms(generatorPairs);
     }
 
     public static void exploreGroup(GroupExplorer gap,
@@ -184,7 +253,7 @@ public class IcosahedralGenerators {
         for (Entry<Generator, Integer> entry : generatorPairs.entrySet()) {
             filteredGeneratorPairs.put(entry.getValue(), entry.getKey());
         }
-        System.out.println("Reduced isomorphisms: " + filteredGeneratorPairs.size());
+        System.out.println("Generator pairs with isomorphisms removed: " + filteredGeneratorPairs.size());
 
         ArrayList<int[][][]> reducedGenerators = new ArrayList<>();
         for (Generator g : filteredGeneratorPairs.values()) {

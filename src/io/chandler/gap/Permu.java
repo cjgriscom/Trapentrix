@@ -149,7 +149,7 @@ public class Permu {
     }
 
     
-	public static List<int[]> generatePermutations(int n) {
+    public static List<int[]> generatePermutations(int n) {
         List<int[]> permutations = new ArrayList<>();
         int[] initial = new int[n];
         for (int i = 0; i < n; i++) {
