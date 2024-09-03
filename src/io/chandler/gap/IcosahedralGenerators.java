@@ -24,10 +24,93 @@ public class IcosahedralGenerators {
         {1, 2, 9}, {8,10,12}, {3, 5,11}, {4, 6, 7},
         {5, 1, 8}, {7, 9,12}, {2, 4,11}, {3,10, 6}
     };
+    
+    static final int[][] icosahedronVertexSymmetries_Shallow = new int[][] {
+        // Shallow    Shallow
+        {1, 2,12},  {6, 7, 11},
+        {2, 3,12},  {7, 8, 11},
+        {3, 4,12},  {8, 9, 11},
+        {4, 5,12},  {9, 10,11},
+        {5, 1,12},  {10, 6,11},
+
+        {4, 5, 7},  {2, 9,10},
+        {3, 4, 6},  {1, 8, 9},
+        {2, 3,10},   {5, 7, 8},
+        {1, 2, 9},  {4, 6, 7},
+        {5, 1, 8},   {3,10, 6}
+    };
 
     public static void main(String[] args) {
-        M11_Slice_and_Vertex_Dodec();
+        //M11_Slice_and_Vertex_Dodec();
         //M12_Deep_and_Shallow_Icosahedron();
+        M12_Vertex_Shallow();
+    }
+
+
+    public static void M12_Vertex_Shallow() {
+        
+        GroupExplorer group = new GroupExplorer(Generators.m12);
+        
+        ArrayList<State> generatorCandidates = new ArrayList<>();
+        ArrayList<State> generatorCandidates2 = new ArrayList<>();
+        exploreGroup(group, (state, cycleDescription) -> {
+           
+            if (cycleDescription.equals("triple 3-cycles")) {
+                if (Math.random() > 0.98) generatorCandidates.add(state);
+            }
+            if (cycleDescription.equals("triple 3-cycles")) {
+                if (Math.random() > 0.98) generatorCandidates2.add(state);
+            }
+
+        });
+        
+        HashMap<Generator, Integer> generatorPairs = findGeneratorPairs(group, generatorCandidates, generatorCandidates2);
+
+        reportReducedIsomorphisms(generatorPairs);
+
+        System.out.println("Searching for icosahedral generators");
+
+        boolean foundMatch = false;
+        int checkedIcosahedralGenerators = 0;
+        HashMap<String, Integer> matchingGenerators = new HashMap<>();
+
+        // Loop through each possible combination of 2 vertices from the icosahedron as generator 1
+        for (int[] c : Permu.generateCombinations(icosahedronVertexSymmetries_Shallow.length, 5)) {
+            
+            int[][][] generator = new int[2][][];
+            boolean[][] fixedCycleIndices = new boolean[2][3];
+
+            generator[0] = new int[][] {
+                {5,7,8}, // Shallow vertex
+                icosahedronVertexSymmetries_Shallow[c[0]],
+                icosahedronVertexSymmetries_Shallow[c[1]],
+            };
+            fixedCycleIndices[0][0] = true;
+            fixedCycleIndices[0][1] = true;
+            generator[1] = new int[][] {
+                icosahedronVertexSymmetries_Shallow[c[2]],
+                icosahedronVertexSymmetries_Shallow[c[3]],
+                icosahedronVertexSymmetries_Shallow[c[4]],
+            };
+            fixedCycleIndices[1][0] = true;
+
+            for (int[][][] genCandidate : CycleInverter.generateInvertedCycles(fixedCycleIndices, generator)) {
+                Generator g = new Generator(GroupExplorer.renumberGenerators(genCandidate));
+                checkedIcosahedralGenerators++;
+                if (generatorPairs.containsKey(g)) {
+                    if (!foundMatch) {
+                        System.out.println("Found a match! #" + generatorPairs.get(g));
+                        System.out.println(GroupExplorer.generatorsToString(genCandidate));
+                        foundMatch = true;
+                    }
+                    matchingGenerators.put(GroupExplorer.generatorsToString(genCandidate), generatorPairs.get(g));
+                }
+            }
+        }
+
+        System.out.println("Checked " + checkedIcosahedralGenerators + " icosahedral generators");
+        
+        reportMatchingGenerators(matchingGenerators);
     }
 
     public static void M11_Slice_and_Vertex_Dodec() {
@@ -63,6 +146,10 @@ public class IcosahedralGenerators {
             {1,2,3,4,5},
             {6,7,8,9,10}
         };
+        boolean[][] fixedCycleIndices = new boolean[][] {
+            {true, true}, // Hold the pentagons stationary
+            {false, false, false} // Allow the vertices to invert
+        };
 
         // Loop through each possible combination of 3 vertices from the icosahedron as generator 1
         for (int[] c : Permu.generateCombinations(icosahedronVertexSymmetries.length, 3)) {
@@ -73,10 +160,7 @@ public class IcosahedralGenerators {
                 icosahedronVertexSymmetries[c[2]]
             };
 
-            // Fix first generator and test variations of second generator
-            int startAtGeneratorIndex = 1;
-
-            for (int[][][] genCandidate : CycleInverter.generateInvertedCycles(startAtGeneratorIndex, generator)) {
+            for (int[][][] genCandidate : CycleInverter.generateInvertedCycles(fixedCycleIndices, generator)) {
                 Generator g = new Generator(GroupExplorer.renumberGenerators(genCandidate));
                 checkedIcosahedralGenerators++;
                 if (generatorPairs.containsKey(g)) {
@@ -122,27 +206,28 @@ public class IcosahedralGenerators {
         int checkedIcosahedralGenerators = 0;
         HashMap<String, Integer> matchingGenerators = new HashMap<>();
 
-        // Start with 3 fixed orbits
-        int[][][] generator = new int[2][][];
-        generator[0] = new int[][] {
-            icosahedronVertexSymmetries[0],
-            icosahedronVertexSymmetries[1],
-            {11,8,7} // or {7,8,11}
-        };
-
-        // Loop through each possible combination of 3 vertices from the icosahedron as generator 1
-        for (int[] c : Permu.generateCombinations(icosahedronVertexSymmetries.length, 3)) {
+        // Loop through each possible combination of 2 vertices from the icosahedron as generator 1
+        for (int[] c : Permu.generateCombinations(icosahedronVertexSymmetries.length, 2)) {
             
-            generator[1] = new int[][] {
-                icosahedronVertexSymmetries[c[0]],
-                icosahedronVertexSymmetries[c[1]],
-                icosahedronVertexSymmetries[c[2]]
+            int[][][] generator = new int[2][][];
+            boolean[][] fixedCycleIndices = new boolean[2][3];
+
+            generator[0] = new int[][] {
+                {1,2,12}, // Shallow vertex
+                {3,5,9}, // Deep cut on same vertex
+                icosahedronVertexSymmetries[c[0]]
             };
+            fixedCycleIndices[0][0] = true;
+            fixedCycleIndices[0][1] = true;
+            generator[1] = new int[][] {
+                {5,7,8}, // Another shallow vertex
+                {1,4,11}, // Deep cut on same vertex
+                icosahedronVertexSymmetries[c[1]]
+            };
+            fixedCycleIndices[1][0] = true;
+            fixedCycleIndices[1][1] = true;
 
-            // Fix first generator and test variations of second generator
-            int startAtGeneratorIndex = 1;
-
-            for (int[][][] genCandidate : CycleInverter.generateInvertedCycles(startAtGeneratorIndex, generator)) {
+            for (int[][][] genCandidate : CycleInverter.generateInvertedCycles(fixedCycleIndices, generator)) {
                 Generator g = new Generator(GroupExplorer.renumberGenerators(genCandidate));
                 checkedIcosahedralGenerators++;
                 if (generatorPairs.containsKey(g)) {
