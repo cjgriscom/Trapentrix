@@ -63,14 +63,4 @@ public class ArrayRotator {
         }
         return copy;
     }
-
-    public static void main(String[] args) {
-        int[][] array = {
-            {1, 2, 3},
-            {1, 2, 3, 4}
-        };
-
-        Consumer<int[][]> printConsumer = arr -> System.out.println(java.util.Arrays.deepToString(arr));
-        rotateSubArrays(array, printConsumer);
-    }
 }
