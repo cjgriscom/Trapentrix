@@ -2,23 +2,28 @@ package io.chandler.gap;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 public class Permu {
     public static void main(String[] args) {
         int[][] operation = new int[][] {
-            new int[] {1, 2, 3},
-            new int[] {4, 5, 6},
-            new int[] {7, 8, 9}
+            new int[] {1, 2, 3},{4,5,6}
         };
         int[][] operation2 = new int[][] {
-            new int[] {1, 2, 3, 4},
-            new int[] {4, 2, 3, 1},
+            new int[] {7,1,2},
+            new int[] {4,8,5}
+        };
+        int[][] operation3 = new int[][] {
+            new int[] {2, 1, 3},
+            new int[] {4, 8, 10},
         };
         int[][][] generator = new int[][][] {
             operation,
-            operation2
+            operation2,
+            operation3
         };
-        List<int[][][]> isomorphs = applyGeneratorPermutationsAndRotations(generator);
+        List<int[][][]> isomorphs = new ArrayList<>();
+        applyGeneratorPermutationsAndRotations(generator, isomorphs::add);
         for (int[][][] isomorph : isomorphs) {
             System.out.println(GroupExplorer.generatorsToString(GroupExplorer.renumberGenerators(isomorph)));
         }
@@ -62,7 +67,7 @@ public class Permu {
 
     
 
-    public static List<int[][][]> applyGeneratorPermutationsAndRotations(int[][][] a) {
+    public static void applyGeneratorPermutationsAndRotations(int[][][] a, Consumer<int[][][]> results) {
         List<int[][][]> result = new ArrayList<>();
         List<List<int[][]>> statePermutations = new ArrayList<>();
     
@@ -75,7 +80,6 @@ public class Permu {
         generateCombinations(statePermutations, 0, new int[a.length][][], result);
         
         // Now loop through the result and apply all rotations to each state
-        List<int[][][]> result2 = new ArrayList<>();
         for (int i = 0; i < result.size(); i++) {
             int[][][] gen = result.get(i);
 
@@ -102,11 +106,10 @@ public class Permu {
                         flatIndex2++;
                     }
                 }
-                result2.add(genRotated);
+                results.accept(genRotated);
             });
             
         }
-        return result2;
     }
 
     private static void generateCombinations(List<List<int[][]>> statePermutations, int index, int[][][] current, List<int[][][]> result) {

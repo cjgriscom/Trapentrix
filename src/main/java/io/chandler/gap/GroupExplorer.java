@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 public class GroupExplorer {
     
@@ -33,17 +34,36 @@ public class GroupExplorer {
 
     public static class Generator {
         int[][][] generator;
+        Integer cachedHashCode;
         public Generator(int[][][] generator) {
             this.generator = generator;
         }
         public int hashCode() {
-            return Arrays.deepHashCode(generator);
+            if (cachedHashCode == null) {
+                cachedHashCode = 0;
+                for (int[][] cycle : generator) {
+                    for (int[] element : cycle) {
+                        cachedHashCode = cachedHashCode * 31 + Arrays.hashCode(element);
+                    }
+                }
+            }
+            return cachedHashCode;
         }
         public boolean equals(Object obj) {
             if (this == obj) return true;
-            if (obj == null || getClass() != obj.getClass()) return false;
+            if (obj == null || !(obj instanceof Generator)) return false;
             Generator generator1 = (Generator) obj;
-            return Arrays.deepEquals(generator, generator1.generator);
+            if (generator.length != generator1.generator.length) return false;
+            for (int i = 0; i < generator.length; i++) {
+                if (generator[i].length != generator1.generator[i].length) return false;
+                for (int j = 0; j < generator[i].length; j++) {
+                    if (generator[i][j].length != generator1.generator[i][j].length) return false;
+                    for (int k = 0; k < generator[i][j].length; k++) {
+                        if (generator[i][j][k] != generator1.generator[i][j][k]) return false;
+                    }
+                }
+            }
+            return true;
         }
     }
 
@@ -119,8 +139,10 @@ public class GroupExplorer {
         }
         return result;
     }
-
     public int exploreStates(boolean debug, BiConsumer<State, Integer> peekStateAndDepth) {
+       return exploreStates(debug, -1, peekStateAndDepth);
+    }    
+    public int exploreStates(boolean debug, int stateLimit, BiConsumer<State, Integer> peekStateAndDepth) {
         stateMap.put(new State(elements.clone()), false);
 
         int lastSize = 0;
@@ -135,6 +157,7 @@ public class GroupExplorer {
                 if (entry.getValue()) {
                     continue;
                 }
+                
                 State state = entry.getKey();
                 int[] currentState = state.state;
 
@@ -159,6 +182,7 @@ public class GroupExplorer {
             }
             lastSize = stateMap.size();
             stateMap = stateMapCopy;
+            if (stateLimit > 0 && stateMapCopy.size() > stateLimit) return -1;
         }
     }
 
@@ -283,10 +307,21 @@ public class GroupExplorer {
 
     public static List<int[][][]> genIsomorphisms(int[][][] a) {
         List<int[][][]> checks = new ArrayList<>();
-        for (int[][][] aPerm : Permu.applyGeneratorPermutationsAndRotations(a)) {
+        Permu.applyGeneratorPermutationsAndRotations(a, (aPerm) -> {
             checks.add(renumberGenerators(aPerm));
-        }
+        });
         return checks;
+    }
+
+    public static void genIsomorphisms_Callback(int[][][] a, Consumer<int[][][]> callback) {
+        genIsomorphisms_Callback(a, true, callback);
+    }
+
+    public static void genIsomorphisms_Callback(int[][][] a, boolean renumber, Consumer<int[][][]> callback) {
+        Permu.applyGeneratorPermutationsAndRotations(a, (aPerm) -> {
+            int[][][] check = renumber ? renumberGenerators(aPerm) : aPerm;
+            callback.accept(check);
+        });
     }
 
     public static String renumberGeneratorNotation(String gapNotation) {
