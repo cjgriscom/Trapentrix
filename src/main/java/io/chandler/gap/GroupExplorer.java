@@ -1,36 +1,30 @@
 package io.chandler.gap;
 
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+
 public class GroupExplorer {
     
-    private Map<State, Boolean> stateMap = new HashMap<>();
+    private Set<State> stateMap = new ObjectOpenHashSet<State>();
+    private Set<State> stateMapIncomplete = new HashSet<State>();
+
     private int[] elements;
     private List<int[][]> parsedOperations;
     public int nElements;
-
-    public static class State {
-        int[] state;
-        public State(int[] state) {
-            this.state = state;
-        }
-        public int hashCode() {
-            return Arrays.hashCode(state);
-        }
-        public boolean equals(Object obj) {
-            if (this == obj) return true;
-            if (obj == null || getClass() != obj.getClass()) return false;
-            State state1 = (State) obj;
-            return Arrays.equals(state, state1.state);
-        }
-    }
 
     public static class Generator {
         int[][][] generator;
@@ -75,6 +69,20 @@ public class GroupExplorer {
         elements = initializeElements(nElements);
         parsedOperations = parseOperations(cycleNotation);
     }
+
+    public void serialize(OutputStream out) throws IOException {
+        try (DataOutputStream dos = new DataOutputStream(out)) {
+            dos.writeInt(nElements);
+            dos.writeInt(stateMap.size());
+
+            for (State state : stateMap) {
+                for (int i : state.state()) {
+                    dos.writeInt(i);
+                }
+            }
+        }
+    }
+        
 
     public int order() {
         return stateMap.size();
@@ -139,50 +147,60 @@ public class GroupExplorer {
         }
         return result;
     }
-    public int exploreStates(boolean debug, BiConsumer<State, Integer> peekStateAndDepth) {
+
+    public int exploreStates(boolean debug, BiConsumer<List<int[]>, Integer> peekStateAndDepth) {
        return exploreStates(debug, -1, peekStateAndDepth);
-    }    
-    public int exploreStates(boolean debug, int stateLimit, BiConsumer<State, Integer> peekStateAndDepth) {
-        stateMap.put(new State(elements.clone()), false);
+    }
+    public int exploreStates(boolean debug, int stateLimit, BiConsumer<List<int[]>, Integer> peekStateAndDepth) {
+        stateMapIncomplete.add(State.of(elements.clone(), nElements));
 
         int lastSize = 0;
         int iteration = 0;
+        
         while (true) {
-            if (debug) System.out.println("Depth: " + iteration + " - " + (stateMap.size() - lastSize));
-            
+            int size = stateMap.size() + stateMapIncomplete.size();
+            if (debug) System.out.println("Depth: " + iteration + " - " + (size - lastSize) + " - " + size);
+            lastSize = size;
             iteration++;
-            HashMap<State, Boolean> stateMapCopy = new HashMap<>(stateMap);
 
-            for (Entry<State, Boolean> entry : stateMap.entrySet()) {
-                if (entry.getValue()) {
-                    continue;
-                }
-                
-                State state = entry.getKey();
-                int[] currentState = state.state;
+            long sizeInit = stateMap.size() + stateMapIncomplete.size();
+
+            Set<State> incompleteAdditions = ConcurrentHashMap.newKeySet();
+            List<int[]> peekList = Collections.synchronizedList(new ArrayList<int[]>());
+
+            Set<State> transferList = ConcurrentHashMap.newKeySet();
+            
+            stateMapIncomplete.parallelStream().forEach((state) -> {
+                int[] currentState = state.state();
 
                 boolean added = false;
                 for (int[][] operation : parsedOperations) {
                     int[] newState = applyOperation(currentState, operation);
+                    State s = State.of(newState, nElements);
 
-                    Boolean exhausted = stateMapCopy.get(new State(newState));
-                    if (exhausted == null) {
-                        State s = new State(newState);
-                        stateMapCopy.put(s, false);
-                        if (peekStateAndDepth != null) peekStateAndDepth.accept(s, iteration);
+                    if (!stateMapIncomplete.contains(s) && !stateMap.contains(s)) {
+                        boolean addedFresh = incompleteAdditions.add(s);
+                        if (addedFresh && peekStateAndDepth != null) peekList.add(newState);
                         added = true;
                     }
                 }
                 if (!added) {
-                    stateMapCopy.put(state, true);
+                    transferList.add(state);
                 }
+            });
+            if (peekList.size() > 0) {
+                peekStateAndDepth.accept(peekList, iteration);
             }
-            if (stateMapCopy.size() == stateMap.size()) {
+            stateMap.addAll(transferList);
+            stateMapIncomplete.removeAll(transferList);
+            stateMapIncomplete.addAll(incompleteAdditions);
+            
+            long sizeEnd = stateMap.size() + stateMapIncomplete.size();
+            if (sizeInit == sizeEnd) {
+                System.out.println("Finished - " + stateMap.size() + " / " + stateMapIncomplete.size());
                 return iteration;
             }
-            lastSize = stateMap.size();
-            stateMap = stateMapCopy;
-            if (stateLimit > 0 && stateMapCopy.size() > stateLimit) return -1;
+            if (stateLimit > 0 && sizeEnd > stateLimit) return -1;
         }
     }
 
@@ -249,14 +267,12 @@ public class GroupExplorer {
         }
         return newState;
     }
-    
     public String describeState(int[] state) {
-        String s = stateToNotation(state);
+        int[][] cycles = stateToCycles(state);
         int[] nCycles = new int[nElements + 1];
-        String[] cycles = s.split("\\(");
         
-        for (String cycle : cycles) {
-            int length = cycle.split(",").length;
+        for (int[] cycle : cycles) {
+            int length = cycle.length;
             if (length > 1) { // Ignore 1-cycles (fixed points)
                 nCycles[length]++;
             }
@@ -279,6 +295,7 @@ public class GroupExplorer {
         }
         return description.toString();
     }
+
     private String getMultiplicityDescription(int count) {
         switch (count) {
             case 1: return "single";
