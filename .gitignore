@@ -5,3 +5,5 @@
 /.settings/*
 /.vscode/*
 /target/
+*.gap.lz4
+*.gap.gz

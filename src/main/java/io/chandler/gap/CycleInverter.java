@@ -70,10 +70,18 @@ public class CycleInverter {
      * @param array the array to invert
      * @return the inverted array
      */
-    private static int[] invertArray(int[] array) {
+    public static int[] invertArray(int[] array) {
         int[] inverted = new int[array.length];
         for (int i = 0; i < array.length; i++) {
             inverted[i] = array[array.length - 1 - i];
+        }
+        return inverted;
+    }
+
+    public static int[][] invertArray(int[][] array) {
+        int[][] inverted = new int[array.length][];
+        for (int i = 0; i < array.length; i++) {
+            inverted[i] = invertArray(array[i]);
         }
         return inverted;
     }

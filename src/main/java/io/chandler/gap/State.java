@@ -3,14 +3,20 @@ package io.chandler.gap;
 import java.math.BigInteger;
 import java.util.Arrays;
 
+import io.chandler.gap.GroupExplorer.MemorySettings;
+
 public abstract class State {
-	public static State of(int[] state, int maxElement) {
-		if (maxElement <= 31) {
+	public static State of(int[] state, int maxElement, MemorySettings mem) {
+		if (mem == MemorySettings.COMPACT) {
 			return new StateFactorial(state, maxElement);
+		} else if (mem == MemorySettings.FASTEST) {
+			return new StateFast(state, maxElement);
+		} else if (maxElement <= 31) {
+			return new StateCompact(state, maxElement);
 		} else if (maxElement <= 255) {
 			return new StateByte(state, maxElement);
 		} else {
-			throw new IllegalArgumentException("Max element is greater than 255");
+			return new StateFast(state, maxElement);
 		}
 	}
 	
@@ -20,6 +26,10 @@ public abstract class State {
 	static class StateFactorial extends State {
         private final byte[] factorialRepresentation;
         private final short length;
+        private StateFactorial(byte[] state, short length) {
+            this.length = length;
+            this.factorialRepresentation = state;
+        }
         private StateFactorial(int[] state, int maxElement) {
             this.length = (short)state.length;
             this.factorialRepresentation = encodeFactorial(state).toByteArray();
@@ -137,6 +147,29 @@ public abstract class State {
 			return Arrays.equals(stateB, state1.stateB);
 		}
 	}
+
+
+	static class StateFast extends State {
+		int[] state;
+
+		private StateFast(int[] state, int maxElement) {
+			this.state = state;
+		}
+		@Override
+		public int[] state() {
+			return state;
+		}
+		public int hashCode() {
+			return Arrays.hashCode(state);
+		}
+		public boolean equals(Object obj) {
+			if (this == obj) return true;
+			if (obj == null || !(obj instanceof State)) return false;
+			StateFast state1 = (StateFast) obj;
+			return Arrays.equals(state, state1.state);
+		}
+	}
+
 
 	static class StateCompact extends State {
         private static final int BITS_PER_ELEMENT = 5;

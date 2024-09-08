@@ -19,12 +19,13 @@ import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 
 public class GroupExplorer {
     
-    private Set<State> stateMap = new ObjectOpenHashSet<State>();
-    private Set<State> stateMapIncomplete = new HashSet<State>();
+    private final Set<State> stateMap;
+    private final Set<State> stateMapIncomplete = new HashSet<State>();
 
     private int[] elements;
     private List<int[][]> parsedOperations;
     public int nElements;
+    public final MemorySettings mem;
 
     public static class Generator {
         int[][][] generator;
@@ -61,15 +62,30 @@ public class GroupExplorer {
         }
     }
 
-    public GroupExplorer(String cycleNotation) {
+    public static enum MemorySettings {
+        FASTEST,
+        DEFAULT,
+        COMPACT,
+    }
+    public GroupExplorer(String cycleNotation, MemorySettings mem) {
+        this(cycleNotation, mem, new ObjectOpenHashSet<State>());
+    }
+    public GroupExplorer(String cycleNotation, MemorySettings mem, Set<State> stateMap) {
         for (String s : cycleNotation.split("\\(|\\)|,|\\[|\\]")) {
             if (!s.trim().isEmpty()) nElements = Math.max(nElements, Integer.parseInt(s.trim()));
         }
 
+        this.mem = mem;
+        this.stateMap = stateMap;
         elements = initializeElements(nElements);
         parsedOperations = parseOperations(cycleNotation);
     }
 
+    public static void serializeState(DataOutputStream dos, int[] state) throws IOException {
+        for (int i : state) {
+            dos.writeInt(i);
+        }
+    }
     public void serialize(OutputStream out) throws IOException {
         try (DataOutputStream dos = new DataOutputStream(out)) {
             dos.writeInt(nElements);
@@ -152,7 +168,7 @@ public class GroupExplorer {
        return exploreStates(debug, -1, peekStateAndDepth);
     }
     public int exploreStates(boolean debug, int stateLimit, BiConsumer<List<int[]>, Integer> peekStateAndDepth) {
-        stateMapIncomplete.add(State.of(elements.clone(), nElements));
+        stateMapIncomplete.add(State.of(elements.clone(), nElements, mem));
 
         int lastSize = 0;
         int iteration = 0;
@@ -176,7 +192,7 @@ public class GroupExplorer {
                 boolean added = false;
                 for (int[][] operation : parsedOperations) {
                     int[] newState = applyOperation(currentState, operation);
-                    State s = State.of(newState, nElements);
+                    State s = State.of(newState, nElements, mem);
 
                     if (!stateMapIncomplete.contains(s) && !stateMap.contains(s)) {
                         boolean addedFresh = incompleteAdditions.add(s);
@@ -197,7 +213,7 @@ public class GroupExplorer {
             
             long sizeEnd = stateMap.size() + stateMapIncomplete.size();
             if (sizeInit == sizeEnd) {
-                System.out.println("Finished - " + stateMap.size() + " / " + stateMapIncomplete.size());
+                //System.out.println("Finished - " + stateMap.size() + " / " + stateMapIncomplete.size());
                 return iteration;
             }
             if (stateLimit > 0 && sizeEnd > stateLimit) return -1;
@@ -267,7 +283,7 @@ public class GroupExplorer {
         }
         return newState;
     }
-    public String describeState(int[] state) {
+    public static String describeState(int nElements, int[] state) {
         int[][] cycles = stateToCycles(state);
         int[] nCycles = new int[nElements + 1];
         
@@ -296,7 +312,7 @@ public class GroupExplorer {
         return description.toString();
     }
 
-    private String getMultiplicityDescription(int count) {
+    private static String getMultiplicityDescription(int count) {
         switch (count) {
             case 1: return "single";
             case 2: return "dual";
