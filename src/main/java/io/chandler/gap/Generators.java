@@ -6,7 +6,7 @@ public class Generators {
     public static final String m11 = "[(1,2,3,4,5,6,7,8,9,10,11),(3,7,11,8)(4,10,5,6)]";
 
     public static final String m11_12pt = "[(1,6)(2,9)(5,7)(8,10),(1,6,7,4)(2,8)(3,9)(5,11,12,10)]";
-    public static final String trapentrix = "[(1,2,3)(5,6,7),(2,4,5)(6,8,9)]";
+    public static final String ree3 = "[(1,2,3)(5,6,7),(2,4,5)(6,8,9)]";
 
     public static final String m10_a6 = "[(2,3)(4,6)(5,7)(8,9),(1,2)(3,4,7,9,10,8,6,5)]";
 
