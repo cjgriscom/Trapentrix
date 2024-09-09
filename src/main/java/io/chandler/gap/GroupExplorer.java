@@ -17,7 +17,7 @@ import java.util.function.Consumer;
 
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 
-public class GroupExplorer {
+public class GroupExplorer implements AbstractGroupProperties {
     
     private final Set<State> stateMap;
     private final Set<State> stateMapIncomplete = new HashSet<State>();
@@ -28,16 +28,40 @@ public class GroupExplorer {
     public final MemorySettings mem;
 
     public static class Generator {
-        int[][][] generator;
+        byte[][][] generator;
         Integer cachedHashCode;
         public Generator(int[][][] generator) {
-            this.generator = generator;
+            this.generator = new byte[generator.length][][];
+            for (int i = 0; i < generator.length; i++) {
+                this.generator[i] = new byte[generator[i].length][];
+                for (int j = 0; j < generator[i].length; j++) {
+                    this.generator[i][j] = new byte[generator[i][j].length];
+                    for (int k = 0; k < generator[i][j].length; k++) {
+                        this.generator[i][j][k] = (byte) generator[i][j][k];
+                    }
+                }
+            }
         }
+
+        public int[][][] generator() {
+            int[][][] result = new int[generator.length][][];
+            for (int i = 0; i < generator.length; i++) {
+                result[i] = new int[generator[i].length][];
+                for (int j = 0; j < generator[i].length; j++) {
+                    result[i][j] = new int[generator[i][j].length];
+                    for (int k = 0; k < generator[i][j].length; k++) {
+                        result[i][j][k] = generator[i][j][k] & 0xff;
+                    }
+                }
+            }
+            return result;
+        }
+
         public int hashCode() {
             if (cachedHashCode == null) {
                 cachedHashCode = 0;
-                for (int[][] cycle : generator) {
-                    for (int[] element : cycle) {
+                for (byte[][] cycle : generator) {
+                    for (byte[] element : cycle) {
                         cachedHashCode = cachedHashCode * 31 + Arrays.hashCode(element);
                     }
                 }
@@ -81,6 +105,32 @@ public class GroupExplorer {
         parsedOperations = parseOperations(cycleNotation);
     }
 
+    public void resetElements(boolean addInitialState) {
+        elements = initializeElements(nElements);
+        stateMap.clear();
+        if (addInitialState) {
+            stateMap.add(State.of(elements.clone(), nElements, mem));
+        }
+    }
+
+    public void applyOperation(int index) {
+        int[][] operation = parsedOperations.get(index);
+        for (int[] cycle : operation) {
+            for (int i = 0; i < cycle.length - 1; i++) {
+                int current = cycle[i];
+                int next = cycle[i + 1];
+                int temp = elements[current - 1];
+                elements[current - 1] = elements[next - 1];
+                elements[next - 1] = temp;
+            }
+        }
+        stateMap.add(State.of(elements.clone(), nElements, mem));
+    }
+
+    public int[] copyCurrentState() {
+        return elements.clone();
+    }
+
     public static void serializeState(DataOutputStream dos, int[] state) throws IOException {
         for (int i : state) {
             dos.writeInt(i);
@@ -99,11 +149,21 @@ public class GroupExplorer {
         }
     }
         
-
+    @Override
     public int order() {
         return stateMap.size();
     }
 
+    @Override
+    public int elements() {
+        return nElements;
+    }
+
+    @Override
+    public MemorySettings mem() {
+        return mem;
+    }
+    
     public static String stateToNotation(int[] state) {
         int[][] cycles = stateToCycles(state);
         return cyclesToNotation(cycles);
@@ -446,5 +506,58 @@ public class GroupExplorer {
         result.append("]");
         return result.toString();
     }
+
+    public static int[] listOrderedElementsInCycles(int[][] aCycles) {
+        int aElementCount = 0;
+        for (int[] cycle : aCycles) { aElementCount+=cycle.length; }
+
+        int[] aElements = new int[aElementCount];
+
+        int aIndex = 0;
+        for (int[] cycle : aCycles) {
+            for (int element : cycle) {
+                aElements[aIndex++] = element;
+            }
+        }
+
+        Arrays.sort(aElements);
+        return aElements;
+    }
+
+	public static boolean intersectionsMissing(int[][] aCycles, int[][] bCycles) {
+		
+        int[] aElements = listOrderedElementsInCycles(aCycles);
+        int[] bElements = listOrderedElementsInCycles(bCycles);
+
+        // For each cycle in a, make sure at least one element is in b
+        for (int[] cycle : aCycles) {
+            boolean found = false;
+            for (int element : cycle) {
+                if (Arrays.binarySearch(bElements, element) >= 0) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return true;
+            }
+        }
+
+        // For each cycle in b, make sure at least one element is in a
+        for (int[] cycle : bCycles) {
+            boolean found = false;
+            for (int element : cycle) {
+                if (Arrays.binarySearch(aElements, element) >= 0) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return true;
+            }
+        }
+        
+        return false;
+	}
 
 }

@@ -79,19 +79,31 @@ public class Dodecahedron {
     }
 
     public static int[][] getEdgeSymmetriesAlongVertexAxis(int vertex) {
-        int[][] symmetries = new int[10][3];
+        return getVertAndEdgeSymmetriesAlongVertexAxis(vertex)[0];
+    }
+
+    public static int[][] getVertexSymmetriesAlongVertexAxis(int vertex) {
+        return getVertAndEdgeSymmetriesAlongVertexAxis(vertex)[1];
+    }
+
+    private static int[][][] getVertAndEdgeSymmetriesAlongVertexAxis(int vertex) {
+        int[][] symmetries = new int[10][3]; // Edge
+        int[][] vertexSymmetries = new int[6][3]; // Vertex
 
         for (int i = 0; i < 3; i++) {
             // Trace various paths down the edges to find all 10 symmetries
             int edge0 = vertexEdges[vertex - 1][i];
             int vertex0 = getOpposingVertex(vertex, edge0);
             symmetries[0][i] = edge0;
+            vertexSymmetries[0][i] = vertex0;
             int edge1L = getCounterclockwiseEdge(vertex0, edge0);
             int edge1R = getClockwiseEdge(vertex0, edge0);
             symmetries[1][i] = edge1L;
             symmetries[2][i] = edge1R;
             int vertex1L = getOpposingVertex(vertex0, edge1L);
             int vertex1R = getOpposingVertex(vertex0, edge1R);
+            vertexSymmetries[1][i] = vertex1L;
+            vertexSymmetries[2][i] = vertex1R;
             int edge2 = getCounterclockwiseEdge(vertex1L, edge1L);
             symmetries[3][i] = edge2;
             int edge3L = getClockwiseEdge(vertex1L, edge1L);
@@ -100,6 +112,8 @@ public class Dodecahedron {
             symmetries[5][i] = edge3R;
             int vertex2L = getOpposingVertex(vertex1L, edge3L);
             int vertex2R = getOpposingVertex(vertex1R, edge3R);
+            vertexSymmetries[3][i] = vertex2L;
+            vertexSymmetries[4][i] = vertex2R;
             int edge4 = getClockwiseEdge(vertex2L, edge3L);
             symmetries[6][i] = edge4;
             int edge5L = getCounterclockwiseEdge(vertex2L, edge3L);
@@ -107,11 +121,12 @@ public class Dodecahedron {
             symmetries[7][i] = edge5L;
             symmetries[8][i] = edge5R;
             int vertex3L = getOpposingVertex(vertex2L, edge5L);
+            vertexSymmetries[5][i] = vertex3L;
             int edge6 = getClockwiseEdge(vertex3L, edge5L);
             symmetries[9][i] = edge6;
         }
 
-        return symmetries;
+        return new int[][][] {symmetries, vertexSymmetries};
     }
 
 

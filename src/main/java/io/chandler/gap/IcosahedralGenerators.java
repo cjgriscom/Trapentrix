@@ -1,18 +1,18 @@
 package io.chandler.gap;
 
-import java.security.acl.Group;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.function.BiConsumer;
 
 import io.chandler.gap.GroupExplorer.Generator;
 import io.chandler.gap.GroupExplorer.MemorySettings;
-import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+
+import static io.chandler.gap.GeneratorPairSearch.findGeneratorPairs;
 
 public class IcosahedralGenerators {
 
@@ -89,10 +89,484 @@ public class IcosahedralGenerators {
         //M11_Vertex_Shallow_Fivefold();
         // M12_ThreeAxis();
         //M12_5_11();
-        TrapentrixFinder();
+        //TrapentrixFinder();
+        //M12_VertexAxis_VertexPcs();
+        //M11_12_VertexAxis_EdgePcs();
+        M24_Search();
+    }
+    
 
+    public static void M24_Search() {
+        
+        List<int[][]> generatorCandidates, generatorCandidates2;
+        
+        try {
+            generatorCandidates = M24Generator.loadM24CategoryStates("6p 3-cycles");
+            generatorCandidates2 = M24Generator.loadM24CategoryStates("6p 3-cycles");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return;
+        }
+
+        AbstractGroupProperties group = new AbstractGroupProperties() {
+            public int elements() { return 24; }
+            public int order() { return 244823040; }
+            public MemorySettings mem() { return MemorySettings.DEFAULT; }
+        };
+
+        ArrayList<IsomorphicGenerator> generatorPairs = GeneratorPairSearch.findGeneratorPairs_NoCache(
+            group,    
+            20000, // TODO tune, Max order before breaking to check isomorphism 
+            443520, // Max order before we consider this M24
+            generatorCandidates, generatorCandidates2, true);
+
+        // Print generators
+        for (IsomorphicGenerator g : generatorPairs) {
+            System.out.println(GroupExplorer.generatorsToString(g.generator()));
+        }
+
+        /*
+
+        System.out.println("Searching for icosahedral generators");
+
+        boolean foundMatch = false;
+        int checkedIcosahedralGenerators = 0;
+        HashMap<String, Integer> matchingGenerators = new HashMap<>();
+
+        // Loop through each possible combination of 2 vertices from the icosahedron as generator 1
+        for (int[] c : Permu.generateCombinations(dodecahedronFaceAboutVertex_Shallow.length, 5)) {
+            
+            int[][][] generator = new int[2][][];
+            boolean[][] fixedCycleIndices = new boolean[2][3];
+
+            generator[0] = new int[][] {
+                {5,7,8}, // Shallow vertex
+                dodecahedronFaceAboutVertex_Shallow[c[0]],
+                dodecahedronFaceAboutVertex_Shallow[c[1]],
+            };
+            fixedCycleIndices[0][0] = true;
+            fixedCycleIndices[0][1] = true;
+            generator[1] = new int[][] {
+                dodecahedronFaceAboutVertex_Shallow[c[2]],
+                dodecahedronFaceAboutVertex_Shallow[c[3]],
+                dodecahedronFaceAboutVertex_Shallow[c[4]],
+            };
+            fixedCycleIndices[1][0] = true;
+
+            for (int[][][] genCandidate : CycleInverter.generateInvertedCycles(fixedCycleIndices, generator)) {
+                Generator g = new Generator(GroupExplorer.renumberGenerators(genCandidate));
+                checkedIcosahedralGenerators++;
+                if (generatorPairs.containsKey(g)) {
+                    if (!foundMatch) {
+                        System.out.println("Found a match! #" + generatorPairs.get(g));
+                        System.out.println(GroupExplorer.generatorsToString(genCandidate));
+                        foundMatch = true;
+                    }
+                    matchingGenerators.put(GroupExplorer.generatorsToString(genCandidate), generatorPairs.get(g));
+                }
+            }
+        }
+
+        System.out.println("Checked " + checkedIcosahedralGenerators + " icosahedral generators");
+        
+        reportMatchingGenerators(matchingGenerators);
+
+        */
     }
 
+
+
+    public static void M11_12_VertexAxis_EdgePcs() {
+        // 1/2 of the trapentrix points correspond to 9 faces on a rhombic triacontahedron
+
+        GroupExplorer group = new GroupExplorer(Generators.m12, MemorySettings.FASTEST);
+        
+        ArrayList<int[][]> generatorCandidates = new ArrayList<>();
+        ArrayList<int[][]> generatorCandidates2 = new ArrayList<>();
+        exploreGroup(group, (state, cycleDescription) -> {
+           
+            if (cycleDescription.equals("quadruple 3-cycles")) {
+                if (Math.random() > 0.99) generatorCandidates.add(GroupExplorer.stateToCycles(state));
+            }
+            if (cycleDescription.equals("triple 3-cycles")) {
+                if (Math.random() > 0.99) generatorCandidates2.add(GroupExplorer.stateToCycles(state));
+            }
+
+        });
+        
+        Map<Generator, Integer> generatorPairs = findGeneratorPairs(group, generatorCandidates, generatorCandidates2, true);
+
+        reportReducedIsomorphisms(generatorPairs);
+
+        System.out.println("Searching for icosahedral generators");
+
+        boolean foundMatch = false;
+        int checkedIcosahedralGenerators = 0;
+        HashMap<String, Integer> matchingGenerators = new HashMap<>();
+
+        // List tiers of symmetries for easier reporting
+        String[] tierLabels = new String[] {
+            /* 0    1     2       3     4      5     6      7      8     9 */
+            "D1", "D2L", "D2R", "D3", "D4L", "D4R", "D5", "D6L", "D6R", "D7",
+        };
+        int[] tierDepths = new int[] {
+            1, 2, 2, 3, 4, 4, 5, 6, 6, 7,
+        };
+        Map<Integer, String> tierNames = new HashMap<>();
+        for (int i = 1; i <= 20; i++) {
+            int[][] axis1 = Dodecahedron.getEdgeSymmetriesAlongVertexAxis(i);
+            for (int j = 0; j < 10; j++) {
+                String name = "V" + i + "-" + tierLabels[j];
+                int[] sorted = axis1[j].clone();
+                int[] rotated = axis1[j].clone();
+
+                Arrays.sort(sorted);
+                int minElement = sorted[0];
+                while (rotated[0] != minElement) {
+                    ArrayRotator.rotateLeft(rotated);
+                }
+                
+                {
+                    int index = 25*25 * rotated[0] + 25 * rotated[1] + rotated[2];
+                    String old = tierNames.get(index);
+                    if (old != null) {
+                        //tierNames.put(index, old + ", " + name);
+                    } else {
+                        tierNames.put(index, name);
+                        tierNames.put(index, name );
+                    }
+                }
+                {
+
+                    int index = 25*25 * rotated[0] + 25 * rotated[2] + rotated[1];
+                    String old = tierNames.get(index);
+                    if (old != null) {
+                        //tierNames.put(index, old + ", " + name);
+                    } else {
+                        tierNames.put(index, name);
+                        tierNames.put(index, name + "*");
+                    }
+                }
+            }
+        }
+
+        int axisDepth = 10; // Search Depth 1, 2L, 2R, 3, 4L, 4R, 5
+
+        // Select 3 vertex axes
+        int vertex0 = 1;
+        int[][] axisA = Dodecahedron.getEdgeSymmetriesAlongVertexAxis(vertex0);
+        for (int vertex1 = 1; vertex1 <= 20; vertex1++) {
+            if (vertex1 == vertex0) continue;
+            int[][] axisB = Dodecahedron.getEdgeSymmetriesAlongVertexAxis(vertex1);
+
+            // Select triples of 3-cycles from each axis
+            for (int[] a : Permu.generateCombinations(axisDepth, 4)) {
+                HashSet<Integer> aTiers = new HashSet<>();
+                HashSet<Integer> aDepths = new HashSet<>();
+                for (int aTier : a) aTiers.add(aTier);
+                for (int aTier : a) aDepths.add(tierDepths[aTier]);
+                for (int[] b : Permu.generateCombinations(axisDepth, 3)) {
+                    HashSet<Integer> bTiers = new HashSet<>();
+                    HashSet<Integer> bDepths = new HashSet<>();
+                    for (int bTier : b) bTiers.add(bTier);
+                    for (int bTier : b) bDepths.add(tierDepths[bTier]);
+
+                    // Remove asymmetrical generators
+                    //if (!aDepths.equals(bDepths)) continue;
+
+                    // Check if there are any mirror conflicts
+                    HashSet<Integer> sideEffectsA = new HashSet<>();
+                    HashSet<Integer> sideEffectsB = new HashSet<>();
+
+                    for (int aTier : aTiers) {
+                        if (aTier == 1 && !aTiers.contains(2)) for (int x : axisA[2]) sideEffectsA.add(x);
+                        if (aTier == 2 && !aTiers.contains(1)) for (int x : axisA[1]) sideEffectsA.add(x);
+                        if (aTier == 4 && !aTiers.contains(5)) for (int x : axisA[5]) sideEffectsA.add(x);
+                        if (aTier == 5 && !aTiers.contains(4)) for (int x : axisA[4]) sideEffectsA.add(x);
+                        if (aTier == 7 && !aTiers.contains(8)) for (int x : axisA[8]) sideEffectsA.add(x);
+                        if (aTier == 8 && !aTiers.contains(7)) for (int x : axisA[7]) sideEffectsA.add(x);
+                    }
+                    for (int bTier : bTiers) {
+                        if (bTier == 1 && !bTiers.contains(2)) for (int x : axisB[2]) sideEffectsB.add(x);
+                        if (bTier == 2 && !bTiers.contains(1)) for (int x : axisB[1]) sideEffectsB.add(x);
+                        if (bTier == 4 && !bTiers.contains(5)) for (int x : axisB[5]) sideEffectsB.add(x);
+                        if (bTier == 5 && !bTiers.contains(4)) for (int x : axisB[4]) sideEffectsB.add(x);
+                        if (bTier == 7 && !bTiers.contains(8)) for (int x : axisB[8]) sideEffectsB.add(x);
+                        if (bTier == 8 && !bTiers.contains(7)) for (int x : axisB[7]) sideEffectsB.add(x);
+                    }
+
+
+                    boolean conflicts = false;
+                    // Now make sure axisB doesn't contains anything in sideEffectsA
+                    for (int bb : bTiers) {
+                        int[] x = axisB[bb];
+                        for (int y : x) {
+                            if (sideEffectsA.contains(y)) {
+                                conflicts = true;
+                            }
+                        }
+                    }
+                    // And vv
+                    for (int aa : aTiers) {
+                        int[] x = axisA[aa];
+                        for (int y : x) {
+                            if (sideEffectsB.contains(y)) {
+                                conflicts = true;
+                            }
+                        }
+                    }
+                    /*
+                    if (("Tiers: A" + aTiers + " B" + bTiers).equals("Tiers: A[2, 5] B[1, 4]")) {
+                    System.out.println(vertex0 + " " + vertex1);
+                    System.out.println("Tiers: A" + aTiers + " B" + bTiers);
+                    System.out.println("Side effects: A" + sideEffectsA + " B" + sideEffectsB);
+                    System.out.println("Axis A: " + Arrays.toString(axisA[a[0]]) + " " + Arrays.toString(axisA[a[1]]));
+                    System.out.println("Axis B: " + Arrays.toString(axisB[b[0]]) + " " + Arrays.toString(axisB[b[1]]));
+                    System.out.println("Conflicts: " + conflicts);
+                    }
+                    */
+                    if (conflicts) continue;
+
+
+                    int[][][] generator = new int[2][][];
+                    boolean[][] fixedCycleIndices = new boolean[][] {
+                        {true, false, false, false},
+                        {true, true, false}
+                    };
+        
+                    generator[0] = new int[][] {
+                        axisA[a[0]],
+                        axisA[a[1]],
+                        axisA[a[2]],
+                        axisA[a[3]]
+                    };
+                    generator[1] = new int[][] {
+                        axisB[b[0]],
+                        axisB[b[1]],
+                        axisB[b[2]]
+                    };
+        
+                    for (int[][][] genCandidate : CycleInverter.generateInvertedCycles(fixedCycleIndices, generator)) {
+                        Generator g = new Generator(GroupExplorer.renumberGenerators(genCandidate));
+                        checkedIcosahedralGenerators++;
+                        if (generatorPairs.containsKey(g)) {
+                            if (!foundMatch) {
+                                System.out.println("Found a match! #" + generatorPairs.get(g));
+                                System.out.println(GroupExplorer.generatorsToString(genCandidate));
+                                foundMatch = true;
+                            }
+                            matchingGenerators.put(GroupExplorer.generatorsToString(genCandidate), generatorPairs.get(g));
+                        }
+                    }
+                }
+            }
+        }
+
+        System.out.println("Checked " + checkedIcosahedralGenerators + " icosahedral generators");
+        
+        System.out.println("Matching generators: " + matchingGenerators.size());
+
+        for (String s : matchingGenerators.keySet()) {
+            int[][][] gen = GroupExplorer.parseOperationsArr(s);
+            boolean first = true;
+            for (int[][] g : gen) {
+                if (!first) System.out.print(",");
+                first = false;
+                for (int[] h : g) {
+                    System.out.print("(");
+
+                    int[] rotated = h.clone();
+                    int[] sorted = h.clone();
+                    Arrays.sort(sorted);
+
+                    int minElement = sorted[0];
+                    while (rotated[0] != minElement) {
+                        ArrayRotator.rotateLeft(rotated);
+                    }
+                   
+                    
+                    System.out.print(tierNames.get(25*25 * rotated[0] + 25 * rotated[1] + rotated[2]));
+                    
+                    System.out.print(")");
+                }
+            }
+            System.out.println("\t" + s);
+        }
+    }
+
+
+    public static void M12_VertexAxis_VertexPcs() {
+        // 1/2 of the trapentrix points correspond to 9 faces on a rhombic triacontahedron
+
+        GroupExplorer group = new GroupExplorer(Generators.m11_12pt, MemorySettings.FASTEST);
+        
+        ArrayList<int[][]> generatorCandidates = new ArrayList<>();
+        ArrayList<int[][]> generatorCandidates2 = new ArrayList<>();
+        exploreGroup(group, (state, cycleDescription) -> {
+           
+            if (cycleDescription.equals("triple 3-cycles")) {
+                if (Math.random() > 0.95) generatorCandidates.add(GroupExplorer.stateToCycles(state));
+            }
+            if (cycleDescription.equals("triple 3-cycles")) {
+                if (Math.random() > 0.95) generatorCandidates2.add(GroupExplorer.stateToCycles(state));
+            }
+
+        });
+        
+        Map<Generator, Integer> generatorPairs = findGeneratorPairs(group, generatorCandidates, generatorCandidates2);
+
+        reportReducedIsomorphisms(generatorPairs);
+
+        System.out.println("Searching for icosahedral generators");
+
+        boolean foundMatch = false;
+        int checkedIcosahedralGenerators = 0;
+        HashMap<String, Integer> matchingGenerators = new HashMap<>();
+
+        // List tiers of symmetries for easier reporting
+        String[] tierLabels = new String[] {
+            /* 0    1     2       3     4      5*/
+            "D1", "D2L", "D2R", "D3L", "D3L", "D4",
+        };
+        int[] tierDepths = new int[] {
+            1, 2, 2, 3, 3, 4,
+        };
+        Map<Integer, String> tierNames = new HashMap<>();
+        for (int i = 1; i <= 20; i++) {
+            int[][] axis1 = Dodecahedron.getVertexSymmetriesAlongVertexAxis(i);
+            for (int j = 0; j < 6; j++) {
+                String name = "V" + i + "-" + tierLabels[j];
+                int[] sorted = axis1[j].clone();
+                Arrays.sort(sorted);
+                int index = 25*25 * sorted[0] + 25 * sorted[1] + sorted[2];
+                String old = tierNames.get(index);
+                if (old != null) {
+                    //tierNames.put(index, old + ", " + name);
+                } else {
+                    tierNames.put(index, name);
+                }
+            }
+        }
+
+        int axisDepth = 6;
+
+        // Select 3 vertex axes
+        int vertex0 = 1;
+        int[][] axisA = Dodecahedron.getVertexSymmetriesAlongVertexAxis(vertex0);
+        for (int vertex1 = 1; vertex1 <= 20; vertex1++) {
+            if (vertex1 == vertex0) continue;
+            int[][] axisB = Dodecahedron.getVertexSymmetriesAlongVertexAxis(vertex1);
+
+            // Select 3x 3-cycles from each axis
+            for (int[] a : Permu.generateCombinations(axisDepth, 3)) {
+                HashSet<Integer> aTiers = new HashSet<>();
+                HashSet<Integer> aDepths = new HashSet<>();
+                for (int aTier : a) aTiers.add(aTier);
+                for (int aTier : a) aDepths.add(tierDepths[aTier]);
+                for (int[] b : Permu.generateCombinations(axisDepth, 3)) {
+                    HashSet<Integer> bTiers = new HashSet<>();
+                    HashSet<Integer> bDepths = new HashSet<>();
+                    for (int bTier : b) bTiers.add(bTier);
+                    for (int bTier : b) bDepths.add(tierDepths[bTier]);
+
+                    // Remove asymmetrical generators
+                    //if (!aDepths.equals(bDepths)) continue;
+
+                    // Check if there are any mirror conflicts
+                    HashSet<Integer> sideEffectsA = new HashSet<>();
+                    HashSet<Integer> sideEffectsB = new HashSet<>();
+
+                    for (int aTier : aTiers) {
+                        if (aTier == 1 && !aTiers.contains(2)) for (int x : axisA[2]) sideEffectsA.add(x);
+                        if (aTier == 2 && !aTiers.contains(1)) for (int x : axisA[1]) sideEffectsA.add(x);
+                        if (aTier == 3 && !aTiers.contains(4)) for (int x : axisA[4]) sideEffectsA.add(x);
+                        if (aTier == 4 && !aTiers.contains(3)) for (int x : axisA[3]) sideEffectsA.add(x);
+                    }
+                    for (int bTier : bTiers) {
+                        if (bTier == 1 && !bTiers.contains(2)) for (int x : axisB[2]) sideEffectsB.add(x);
+                        if (bTier == 2 && !bTiers.contains(1)) for (int x : axisB[1]) sideEffectsB.add(x);
+                        if (bTier == 3 && !bTiers.contains(4)) for (int x : axisB[4]) sideEffectsB.add(x);
+                        if (bTier == 4 && !bTiers.contains(3)) for (int x : axisB[3]) sideEffectsB.add(x);
+                    }
+
+
+                    boolean conflicts = false;
+                    // Now make sure axisB doesn't contains anything in sideEffectsA
+                    for (int bb : bTiers) {
+                        int[] x = axisB[bb];
+                        for (int y : x) {
+                            if (sideEffectsA.contains(y)) {
+                                conflicts = true;
+                            }
+                        }
+                    }
+                    // And vv
+                    for (int aa : aTiers) {
+                        int[] x = axisA[aa];
+                        for (int y : x) {
+                            if (sideEffectsB.contains(y)) {
+                                conflicts = true;
+                            }
+                        }
+                    }
+                    
+                    if (conflicts) continue;
+
+
+                    int[][][] generator = new int[2][][];
+                    boolean[][] fixedCycleIndices = new boolean[][] {
+                        {true, false, false},
+                        {true, false, false}
+                    };
+        
+                    generator[0] = new int[][] {
+                        axisA[a[0]],
+                        axisA[a[1]],
+                        axisA[a[2]],
+                    };
+                    generator[1] = new int[][] {
+                        axisB[b[0]],
+                        axisB[b[1]],
+                        axisB[b[2]],
+                    };
+        
+                    for (int[][][] genCandidate : CycleInverter.generateInvertedCycles(fixedCycleIndices, generator)) {
+                        Generator g = new Generator(GroupExplorer.renumberGenerators(genCandidate));
+                        checkedIcosahedralGenerators++;
+                        if (generatorPairs.containsKey(g)) {
+                            if (!foundMatch) {
+                                System.out.println("Found a match! #" + generatorPairs.get(g));
+                                System.out.println(GroupExplorer.generatorsToString(genCandidate));
+                                foundMatch = true;
+                            }
+                            matchingGenerators.put(GroupExplorer.generatorsToString(genCandidate), generatorPairs.get(g));
+                        }
+                    }
+                }
+            }
+        }
+
+        System.out.println("Checked " + checkedIcosahedralGenerators + " icosahedral generators");
+        
+        System.out.println("Matching generators: " + matchingGenerators.size());
+
+        for (String s : matchingGenerators.keySet()) {
+            int[][][] gen = GroupExplorer.parseOperationsArr(s);
+            boolean first = true;
+            for (int[][] g : gen) {
+                if (!first) System.out.print(",");
+                first = false;
+                for (int[] h : g) {
+                    System.out.print("(");
+                    int[] sorted = h.clone();
+                    Arrays.sort(sorted);
+                    System.out.print(tierNames.get(25*25 * sorted[0] + 25 * sorted[1] + sorted[2]));
+                    System.out.print(")");
+                }
+            }
+            System.out.println("\t" + s);
+        }
+    }
 
     public static void TrapentrixFinder() {
         // 1/2 of the trapentrix points correspond to 9 faces on a rhombic triacontahedron
@@ -319,7 +793,7 @@ public class IcosahedralGenerators {
                 if (generatorCandidates6.containsKey(g)) {
                     generatorCandidates6.put(g, generatorCandidates6.get(g));
                 } else {
-                    GroupExplorer.genIsomorphisms_Callback(g.generator, false, (iso) -> {
+                    GroupExplorer.genIsomorphisms_Callback(g.generator(), false, (iso) -> {
                         generatorCandidates6.put(new Generator(iso), count[0]);
                     });
                 }
@@ -328,7 +802,7 @@ public class IcosahedralGenerators {
                 if (generatorCandidates11.containsKey(g)) {
                     generatorCandidates11.put(g, generatorCandidates11.get(g));
                 } else {
-                    GroupExplorer.genIsomorphisms_Callback(g.generator, false, (iso) -> {
+                    GroupExplorer.genIsomorphisms_Callback(g.generator(), false, (iso) -> {
                         generatorCandidates11.put(new Generator(iso), count[0]);
                     });
                 }
@@ -354,10 +828,10 @@ public class IcosahedralGenerators {
 
         // 19245600
         for (Generator g : reducedGeneratorsList11) {
-           if (Math.random() > 0.98) generators11.add(g.generator[0]);
+           if (Math.random() > 0.98) generators11.add(g.generator()[0]);
         }
         for (Generator g : reducedGeneratorsList6) {
-            if (Math.random() > 0.98) generators6.add(g.generator[0]);
+            if (Math.random() > 0.98) generators6.add(g.generator()[0]);
          }
 
         System.out.println("Found " + reducedGeneratorsList11.size() + " / " + reducedGeneratorsList6.size() + " reduced generators");
@@ -419,7 +893,7 @@ public class IcosahedralGenerators {
                 if (generatorCandidates.containsKey(g)) {
                     generatorCandidates.put(g, generatorCandidates.get(g));
                 } else {
-                    GroupExplorer.genIsomorphisms_Callback(g.generator, false, (iso) -> {
+                    GroupExplorer.genIsomorphisms_Callback(g.generator(), false, (iso) -> {
                         generatorCandidates.put(new Generator(iso), count[0]);
                     });
                 }
@@ -441,11 +915,11 @@ public class IcosahedralGenerators {
         boolean[] first = new boolean[]{true};
         for (Generator g : reducedGeneratorsList) {
            if (first[0]) {
-            generatorCandidates0.add(g.generator[0]);
+            generatorCandidates0.add(g.generator()[0]);
             first[0] = false;
            }
-           else if (Math.random() > 0.995) generatorCandidates1.add(g.generator[0]);
-           else if (Math.random() > 0.995) generatorCandidates2.add(g.generator[0]);
+           else if (Math.random() > 0.995) generatorCandidates1.add(g.generator()[0]);
+           else if (Math.random() > 0.995) generatorCandidates2.add(g.generator()[0]);
         }
 
         System.out.println("Found " + reducedGeneratorsList.size() + " reduced generators");
@@ -823,53 +1297,6 @@ public class IcosahedralGenerators {
 
     }
 
-    public static Map<Generator, Integer> findGeneratorPairs(GroupExplorer group, ArrayList<int[][]> generatorCandidates, ArrayList<int[][]> generatorCandidates2) {
-        return findGeneratorPairs(group, generatorCandidates, generatorCandidates2, false);
-    }
-    public static Map<Generator, Integer> findGeneratorPairs(GroupExplorer group, ArrayList<int[][]> generatorCandidates, ArrayList<int[][]> generatorCandidates2, boolean verbose) {
-        
-        System.out.println("Generator candidates: " + generatorCandidates.size());
-        System.out.println("Generator candidates2: " + generatorCandidates2.size());
-
-        // Make a list of generator pairs : src index
-        //HashMap<Generator, Integer> generatorPairs = new HashMap<>();
-
-        Object2IntOpenHashMap<Generator> generatorPairs = new Object2IntOpenHashMap<>();
-        int lastSize = 0;
-        // Loop thru pairs of generator candidates
-        for (int i = 0; i < generatorCandidates.size(); i++) {
-            if (i % 10 == 0) System.out.println("Checking generator "+i+"/"+0+" of " + generatorCandidates.size() + " - " + generatorPairs.size() + " pairs found");
-            int[][] aCycles = generatorCandidates.get(i);
-            int j0 = generatorCandidates == generatorCandidates2 ? i + 1 : 0;
-            for (int j = j0; j < generatorCandidates2.size(); j++) {
-                int[][] bCycles = generatorCandidates2.get(j);
-
-                if (!GroupExplorer.cyclesContainsAllElements(group.nElements, aCycles, bCycles)) continue;
-
-                int[][][] generator = new int[][][] { aCycles, bCycles };
-                generator = GroupExplorer.renumberGenerators(generator);
-                if (generatorPairs.containsKey(new Generator(generator))) continue;
-
-                String composite = "[" + GroupExplorer.cyclesToNotation(aCycles) + "," + GroupExplorer.cyclesToNotation(bCycles) + "]";
-                GroupExplorer compositeGAP = new GroupExplorer(composite, group.mem);
-                compositeGAP.exploreStates(false, null);
-                int order = compositeGAP.order();
-                if (order == group.order()) {
-                    for (int[][][] iso : GroupExplorer.genIsomorphisms(generator)) {
-                        generatorPairs.put(new Generator(iso), i * generatorCandidates.size() + j);
-                    }
-                }
-                if (generatorPairs.size() > lastSize) {
-                    if (verbose) System.out.println("Checking generator "+i+"/"+j+" of " + generatorCandidates.size() + " - " + generatorPairs.size() + " pairs found");
-                    lastSize = generatorPairs.size();
-                }
-            }
-        }
-
-        System.out.println("Isomorphic Generator pairs: " + generatorPairs.size());
-        return generatorPairs;
-    }
-   
     public static HashMap<Generator, Integer> findGeneratorTriples(int stateLimit, GroupExplorer group, ArrayList<int[][]> generatorCandidates, ArrayList<int[][]> generatorCandidates2, ArrayList<int[][]> generatorCandidates3) {
         
         System.out.println("Generator candidates: " + generatorCandidates.size());
@@ -945,7 +1372,7 @@ public class IcosahedralGenerators {
 
         ArrayList<int[][][]> reducedGenerators = new ArrayList<>();
         for (Generator g : filteredGenerators.values()) {
-            reducedGenerators.add(g.generator);
+            reducedGenerators.add(g.generator());
         }
 
         // Print generators

@@ -151,6 +151,21 @@ public class Permu {
         return result;
     }
 
+    public static List<int[][]> applyStateRepetitions(int[][] a) {
+        ArrayList<int[][]> result = new ArrayList<>();
+        
+        int cycleOrderA = a[0].length;
+
+        int aReps = cycleOrderA % 2 == 0 ? 1 : cycleOrderA / 2;
+
+        for (int repA = 0; repA < aReps; repA++) {
+            int[][] aRep = GroupExplorer.repeatOperation(a, repA);
+            result.add(aRep);
+            result.add(GroupExplorer.reverseOperation(aRep));
+        }
+        return result;
+    }
+
     
     public static List<int[]> generatePermutations(int n) {
         List<int[]> permutations = new ArrayList<>();

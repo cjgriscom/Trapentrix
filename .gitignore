@@ -7,3 +7,4 @@
 /target/
 *.gap.lz4
 *.gap.gz
+*.gap.states
