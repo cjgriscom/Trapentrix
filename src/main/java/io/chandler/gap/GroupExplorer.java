@@ -485,6 +485,34 @@ public class GroupExplorer implements AbstractGroupProperties {
         return result;
     }
 
+    public static int[][][] renumberGenerators_fast(int[][][] generators) {
+        int[] newIndices = new int[256]; // Assuming max element is < 256
+        int nextIndex = 1;
+        int[][][] result = new int[generators.length][][];
+    
+        for (int i = 0; i < generators.length; i++) {
+            int[][] generator = generators[i];
+            result[i] = new int[generator.length][];
+    
+            for (int j = 0; j < generator.length; j++) {
+                int[] cycle = generator[j];
+                int[] newCycle = new int[cycle.length];
+    
+                for (int k = 0; k < cycle.length; k++) {
+                    int oldIndex = cycle[k];
+                    if (newIndices[oldIndex] == 0) {
+                        newIndices[oldIndex] = nextIndex++;
+                    }
+                    newCycle[k] = newIndices[oldIndex];
+                }
+    
+                result[i][j] = newCycle;
+            }
+        }
+    
+        return result;
+    }
+
     // Helper method to convert int[][][] to String (for debugging or display purposes)
     public static String generatorsToString(int[][][] generators) {
         StringBuilder result = new StringBuilder("[");

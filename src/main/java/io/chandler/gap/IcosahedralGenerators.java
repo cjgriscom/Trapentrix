@@ -89,19 +89,19 @@ public class IcosahedralGenerators {
         //M11_Vertex_Shallow_Fivefold();
         // M12_ThreeAxis();
         //M12_5_11();
-        //TrapentrixFinder();
+        TrapentrixFinder();
         //M12_VertexAxis_VertexPcs();
         //M11_12_VertexAxis_EdgePcs();
-        M24_Search();
+        //M24_Search();
     }
     
-
+    
     public static void M24_Search() {
         
         List<int[][]> generatorCandidates, generatorCandidates2;
         
         try {
-            generatorCandidates = M24Generator.loadM24CategoryStates("6p 3-cycles");
+            generatorCandidates = M24Generator.loadM24CategoryStates("8p 3-cycles");
             generatorCandidates2 = M24Generator.loadM24CategoryStates("6p 3-cycles");
         } catch (Exception e) {
             e.printStackTrace();
@@ -114,14 +114,14 @@ public class IcosahedralGenerators {
             public MemorySettings mem() { return MemorySettings.DEFAULT; }
         };
 
-        ArrayList<IsomorphicGenerator> generatorPairs = GeneratorPairSearch.findGeneratorPairs_NoCache(
+        ArrayList<Generator> generatorPairs = GeneratorPairSearch.findGeneratorPairs_NoCache(
             group,    
-            20000, // TODO tune, Max order before breaking to check isomorphism 
+            30, // Stop when we've found this many 
             443520, // Max order before we consider this M24
             generatorCandidates, generatorCandidates2, true);
 
         // Print generators
-        for (IsomorphicGenerator g : generatorPairs) {
+        for (Generator g : generatorPairs) {
             System.out.println(GroupExplorer.generatorsToString(g.generator()));
         }
 

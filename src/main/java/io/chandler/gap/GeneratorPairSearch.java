@@ -9,15 +9,10 @@ import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 
 public class GeneratorPairSearch {
 
-	/*
-	 * Find isomorphic pairs, pruning as they're created
-	 * This is much slower than caching isomorphisms
-	 *    but for large generators it's required
-	 */
-    public static ArrayList<IsomorphicGenerator> findGeneratorPairs_NoCache(
+    public static ArrayList<Generator> findGeneratorPairs_NoCache(
 			AbstractGroupProperties group,
-			int quickPruneOrder,
-			int thoroughDiscardOrder,
+            int nToFind,
+			int satisfactoryOrder,
 			List<int[][]> generatorCandidates,
 			List<int[][]> generatorCandidates2,
 			boolean verbose) {
@@ -28,7 +23,7 @@ public class GeneratorPairSearch {
         // Make a list of generator pairs : src index
         //HashMap<Generator, Integer> generatorPairs = new HashMap<>();
 
-        ArrayList<IsomorphicGenerator> generatorPairs = new ArrayList<>();
+        ArrayList<Generator> generatorPairs = new ArrayList<>();
         int lastSize = 0;
         // Loop thru pairs of generator candidates
         for (int i = 0; i < generatorCandidates.size(); i++) {
@@ -45,16 +40,6 @@ public class GeneratorPairSearch {
                 }
 
                 int[][][] generator = new int[][][] { aCycles, bCycles };
-                IsomorphicGenerator isomorphicGenerator = new IsomorphicGenerator(generator);
-                boolean alreadyExists = false;
-                for (IsomorphicGenerator existing : generatorPairs) {
-                    if (existing.equals(isomorphicGenerator)) {
-                        alreadyExists = true;
-                        break;
-                    }
-                }
-                if (alreadyExists) continue;
-
                 String composite = "[" + GroupExplorer.cyclesToNotation(aCycles) + "," + GroupExplorer.cyclesToNotation(bCycles) + "]";
                 
                 boolean[] success = new boolean[]{false};
@@ -64,7 +49,7 @@ public class GeneratorPairSearch {
                     GroupExplorer compositeGAP = new GroupExplorer(composite, group.mem());
                     compositeGAP.exploreStates(false, (states, depth) -> {
                         order[0] += states.size();
-                        if (order[0] > thoroughDiscardOrder) {
+                        if (order[0] > satisfactoryOrder) {
                             success[0] = true;
                             throw new RuntimeException();
                         }
@@ -76,18 +61,22 @@ public class GeneratorPairSearch {
                 } catch (RuntimeException e) {}
 
                 if (success[0]) {
-                    generatorPairs.add(isomorphicGenerator);
+                    generatorPairs.add(new Generator(generator));
                 } else {
                     //System.out.println("Failed to generate group: " + order[0]);
                 }
                 if (generatorPairs.size() > lastSize) {
                     if (verbose) System.out.println("Checking generator "+i+"/"+j+" of " + generatorCandidates.size() + " - " + generatorPairs.size() + " pairs found");
                     lastSize = generatorPairs.size();
+                    if (generatorPairs.size() >= nToFind) {
+                        System.out.println("Found " + generatorPairs.size() + " generators");
+                        return generatorPairs;
+                    }
                 }
             }
         }
 
-        System.out.println("Isomorphic Generator pairs: " + generatorPairs.size());
+        System.out.println("Found " + generatorPairs.size() + " generators");
         return generatorPairs;
     }
 
