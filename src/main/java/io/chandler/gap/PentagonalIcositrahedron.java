@@ -55,8 +55,8 @@ public class PentagonalIcositrahedron {
 	}
 
 	public static void main(String[] args) {
-		for (int i = 1; i <= 32; i++) {
-			System.out.println(i + ": " + Arrays.toString(getFacesFromVertex(i)));
+		for (int i = 1; i <= 24; i++) {
+			System.out.println(i + ": V" + pifaceToCubeFaceVertex[i-1][1] + " F" + pifaceToCubeFaceVertex[i-1][0]);
 		}
 	}
 }

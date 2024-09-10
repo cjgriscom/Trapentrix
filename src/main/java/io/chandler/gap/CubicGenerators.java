@@ -11,72 +11,65 @@ import io.chandler.gap.GroupExplorer.MemorySettings;
 public class CubicGenerators {
 	public static void main(String[] args) {
 
-
-		System.out.println(Arrays.toString(PentagonalIcositrahedron.getFacesFromVertex(1)));
-		
 		HashSet<Generator> validVertexCombinations = new HashSet<>();
 		int[] iteration = new int[] {0};
 
-		long combinations = 208632584160l;
+		long combinations = 57_996_288;
 		long startTime = System.currentTimeMillis();
 
+
+		String cubicPISymmetries = "[" +
+			"(1,4,7,10)(2,5,8,11)(3,6,9,12)" + // Face 1 CW
+			"(17,20,23,15)(13,18,21,24)(16,19,22,14)" + // Face 6 CCW
+			"," +
+			"(2,12,13,16)(3,10,14,17)(1,11,15,18)" + // Face 2 CW
+			"(6,8,22,21)(4,9,23,19)(5,7,24,20)" + // Face 4 CCW
+			"," +
+			"(3,18,19,5)(1,16,20,6)(2,17,21,4)" + // Face 3 CW
+			"(9,11,14,24)(7,12,15,22)(8,10,13,23)" + // Face 5 CCW
+			"]";
+		int[][][] symm = GroupExplorer.parseOperationsArr(cubicPISymmetries);
+		System.out.println(GroupExplorer.generatorsToString(GroupExplorer.renumberGenerators_fast(symm)));
+
+		GroupExplorer cube = new GroupExplorer(cubicPISymmetries, MemorySettings.FASTEST);
+		
+		IcosahedralGenerators.exploreGroup(cube, null);
+		
+		System.exit(0);
 
 		HashSet<Integer> uniqueFaces = new HashSet<>();
 
 		// Generate combinations of 1 octahedral vertex and 2 weird vertices
 		// Generate combinations of 2 octahedral vertices and 1 weird vertex
 		// Generate combinations of the weird vertices
-		PermuCallback.generateCombinations(24, 12, (x) -> {
-		PermuCallback.generateCombinations(24, 12, (b) -> {
-		
-			List<int[]> partitions = Permu.generateCombinations(12, 6);
-			for (int[] p : partitions) {
-				int[] q = new int[6];
-                int index = 0;
-                for (int i = 0; i < 12; i++) {
-                    if (Arrays.binarySearch(p, i) < 0) {
-                        q[index++] = i;
-                    }
-                };
+		PermuCallback.generateCombinations(32, 6, (b) -> {
+	
 
-				int[][] cyclesA = new int[][] {
-					PentagonalIcositrahedron.getFacesFromVertex(b[p[0]] + 1),
-					PentagonalIcositrahedron.getFacesFromVertex(b[p[1]] + 1),
-					PentagonalIcositrahedron.getFacesFromVertex(b[p[2]] + 1),
-					PentagonalIcositrahedron.getFacesFromVertex(b[p[3]] + 1),
-					PentagonalIcositrahedron.getFacesFromVertex(b[p[4]] + 1),
-					PentagonalIcositrahedron.getFacesFromVertex(b[p[5]] + 1),
-				};
+			int[][] cyclesA = new int[][] {
+				PentagonalIcositrahedron.getFacesFromVertex(b[0] + 1),
+				PentagonalIcositrahedron.getFacesFromVertex(b[1] + 1),
+				PentagonalIcositrahedron.getFacesFromVertex(b[2] + 1),
+				PentagonalIcositrahedron.getFacesFromVertex(b[3] + 1),
+				PentagonalIcositrahedron.getFacesFromVertex(b[4] + 1),
+				PentagonalIcositrahedron.getFacesFromVertex(b[5] + 1),
+			};
 
-				int[][] cyclesB = new int[][] {
-					PentagonalIcositrahedron.getFacesFromVertex(b[q[0]] + 1),
-					PentagonalIcositrahedron.getFacesFromVertex(b[q[1]] + 1),
-					PentagonalIcositrahedron.getFacesFromVertex(b[q[2]] + 1),
-					PentagonalIcositrahedron.getFacesFromVertex(b[q[3]] + 1),
-					PentagonalIcositrahedron.getFacesFromVertex(b[q[4]] + 1),
-					PentagonalIcositrahedron.getFacesFromVertex(b[q[5]] + 1),
-				};
 
-				uniqueFaces.clear();
-				for (int[] cycle : cyclesA) {
-					for (int face : cycle) {
-						uniqueFaces.add(face);
-					}
+			uniqueFaces.clear();
+			for (int[] cycle : cyclesA) {
+				for (int face : cycle) {
+					uniqueFaces.add(face);
 				}
-				
-				if (uniqueFaces.size() != 6*3) continue;
-
-				uniqueFaces.clear();
-				for (int[] cycle : cyclesB) {
-					for (int face : cycle) {
-						uniqueFaces.add(face);
-					}
-				}
-				if (uniqueFaces.size() != 6*3) continue;
-				
-				validVertexCombinations.add(new Generator(new int[][][] {cyclesA, cyclesB}));
-
 			}
+			
+			if (uniqueFaces.size() == 6*3) {
+
+				Generator g;
+				//validVertexCombinations.add(new Generator(new int[][][] {cyclesA, cyclesB}));
+				//TODO
+				
+			}
+
 			
 			if (iteration[0] % 10000 == 0) {
 				long currentTime = System.currentTimeMillis();
@@ -93,7 +86,6 @@ public class CubicGenerators {
 					" | Estimated time remaining: " + remainingTimeStr);
 			}
 			iteration[0]++;
-		});
 		});
 
 		System.out.println(validVertexCombinations.size());

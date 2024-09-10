@@ -84,9 +84,9 @@ public class IcosahedralGenerators {
     public static void main(String[] args) {
         //M11_Slice_and_Vertex_Dodec();
         //M12_Deep_and_Shallow_Icosahedron();
-        //M12_Vertex_Shallow();
-        //M12_Vertex_Shallow_Threefold();
-        //M11_Vertex_Shallow_Fivefold();
+        //M12_bauhinia();
+        //M12_bauhinia_threefold();
+        //M11_bauhinia_fivefold();
         // M12_ThreeAxis();
         //M12_5_11();
         //TrapentrixFinder();
@@ -115,12 +115,66 @@ public class IcosahedralGenerators {
             tet3 + "," +
             tet4 + "]";
 
-        // "[(2,3,12)(1,8,9)(4,5,7),(1,9,2)(12,4,5)(6,10,3),(12,5,1)(3,2,10)(8,9,11),(4,3,6)(7,12,10)(1,9,8)(2,11,5)]"
+        int[][][] generatorSkeleton = new int[][][] {
+            GroupExplorer.parseOperationsArr("["+tet1+"]")[0],
+            GroupExplorer.parseOperationsArr("["+tet2+"]")[0],
+            GroupExplorer.parseOperationsArr("["+tet3+"]")[0],
+            GroupExplorer.parseOperationsArr("["+tet4+"]")[0],
+            null
+        };
+
         GroupExplorer group = new GroupExplorer(
             combinations,
             MemorySettings.DEFAULT);
         
-            exploreGroup(group, null);
+        System.out.println("Searching for icosahedral generators");
+
+        int checkedIcosahedralGenerators = 0;
+        HashMap<String, Integer> matchingGenerators = new HashMap<>();
+
+        // Loop through each possible combination of 2 vertices from the icosahedron as generator 1
+        for (int[] c : Permu.generateCombinations(dodecahedronFaceAboutVertex_Shallow.length, 3)) {
+            
+            int[][][] generator = generatorSkeleton.clone();
+            boolean[][] fixedCycleIndices = new boolean[][] {
+                {true, true, true, true},
+                {true, true, true, true},
+                {true, true, true, true},
+                {true, true, true, true},
+                {true, false, false}
+            };
+
+            generator[generator.length - 1] = new int[][] {
+                dodecahedronFaceAboutVertex_Shallow[c[0]],
+                dodecahedronFaceAboutVertex_Shallow[c[1]],
+                dodecahedronFaceAboutVertex_Shallow[c[2]],
+            };
+
+            int wantOrder = 95040;
+
+            for (int[][][] genCandidate : CycleInverter.generateInvertedCycles(fixedCycleIndices, generator)) {
+                //Generator g = new Generator(genCandidate);
+                checkedIcosahedralGenerators++;
+
+                GroupExplorer check = new GroupExplorer(GroupExplorer.generatorsToString(genCandidate), MemorySettings.FASTEST);
+
+
+                int iterations = check.exploreStates(false, wantOrder+1, null);
+
+                if (iterations > 0 && wantOrder == check.order()) {
+                    matchingGenerators.put(GroupExplorer.generatorsToString(genCandidate), check.order());
+                    System.out.println(check.order() + " " + GroupExplorer.generatorsToString(new int[][][]{genCandidate[genCandidate.length - 1]}));
+                }
+
+                if (checkedIcosahedralGenerators % 100 == 0) System.out.println(checkedIcosahedralGenerators + " / " + 9120/2);
+            }
+        }
+
+        System.out.println("Checked " + checkedIcosahedralGenerators + " icosahedral generators");
+        
+
+        
+        //reportMatchingGenerators(matchingGenerators);
     }
 
     
@@ -1027,7 +1081,7 @@ public class IcosahedralGenerators {
 
     }
 
-    public static void M11_Vertex_Shallow_Fivefold() {
+    public static void M11_bauhinia_fivefold() {
         
         GroupExplorer group = new GroupExplorer(Generators.m11, MemorySettings.FASTEST);
         
@@ -1091,7 +1145,7 @@ public class IcosahedralGenerators {
         reportMatchingGenerators(matchingGenerators);
     }
 
-    public static void M12_Vertex_Shallow_Threefold() {
+    public static void M12_bauhinia_threefold() {
         GroupExplorer group = new GroupExplorer(
                 Generators.m12,
                 MemorySettings.DEFAULT);
@@ -1156,7 +1210,7 @@ public class IcosahedralGenerators {
         reportMatchingGenerators(matchingGenerators);
     }
 
-    public static void M12_Vertex_Shallow() {
+    public static void M12_bauhinia() {
         
         GroupExplorer group = new GroupExplorer(Generators.m12, MemorySettings.FASTEST);
         
