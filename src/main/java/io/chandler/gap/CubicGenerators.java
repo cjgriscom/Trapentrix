@@ -11,22 +11,33 @@ import io.chandler.gap.GroupExplorer.MemorySettings;
 public class CubicGenerators {
 	public static void main(String[] args) {
 
+
 		System.out.println(Arrays.toString(PentagonalIcositrahedron.getFacesFromVertex(1)));
 		
 		HashSet<Generator> validVertexCombinations = new HashSet<>();
 		int[] iteration = new int[] {0};
 
 		long combinations = 208632584160l;
-		PermuCallback.generateCombinations(32, 12, (b) -> {
+		long startTime = System.currentTimeMillis();
+
+
+		HashSet<Integer> uniqueFaces = new HashSet<>();
+
+		// Generate combinations of 1 octahedral vertex and 2 weird vertices
+		// Generate combinations of 2 octahedral vertices and 1 weird vertex
+		// Generate combinations of the weird vertices
+		PermuCallback.generateCombinations(24, 12, (x) -> {
+		PermuCallback.generateCombinations(24, 12, (b) -> {
 		
 			List<int[]> partitions = Permu.generateCombinations(12, 6);
 			for (int[] p : partitions) {
-				HashSet<Integer> notSelected = new HashSet<>();
-				for (int i = 0 ; i < 12; i++) notSelected.add(i);
-				for (int i : p) notSelected.remove(i);
-				int[] q = new int[notSelected.size()];
-				int index = 0;
-				for (int i : notSelected) q[index++] = i;
+				int[] q = new int[6];
+                int index = 0;
+                for (int i = 0; i < 12; i++) {
+                    if (Arrays.binarySearch(p, i) < 0) {
+                        q[index++] = i;
+                    }
+                };
 
 				int[][] cyclesA = new int[][] {
 					PentagonalIcositrahedron.getFacesFromVertex(b[p[0]] + 1),
@@ -46,7 +57,7 @@ public class CubicGenerators {
 					PentagonalIcositrahedron.getFacesFromVertex(b[q[5]] + 1),
 				};
 
-				HashSet<Integer> uniqueFaces = new HashSet<>();
+				uniqueFaces.clear();
 				for (int[] cycle : cyclesA) {
 					for (int face : cycle) {
 						uniqueFaces.add(face);
@@ -66,8 +77,23 @@ public class CubicGenerators {
 				validVertexCombinations.add(new Generator(new int[][][] {cyclesA, cyclesB}));
 
 			}
-			if (iteration[0] % 10000 == 0) System.out.println(iteration[0] + " / " + combinations + " -> " + validVertexCombinations.size());
+			
+			if (iteration[0] % 10000 == 0) {
+				long currentTime = System.currentTimeMillis();
+				long elapsedTime = currentTime - startTime;
+				long estimatedTotalTime = (long) ((double) elapsedTime / iteration[0] * combinations);
+				long remainingTime = estimatedTotalTime - elapsedTime;
+				
+				String remainingTimeStr = String.format("%d hours, %d minutes, %d seconds",
+					remainingTime / 3600000,
+					(remainingTime % 3600000) / 60000,
+					(remainingTime % 60000) / 1000);
+				
+				System.out.println(iteration[0] + " / " + combinations + " -> " + validVertexCombinations.size() +
+					" | Estimated time remaining: " + remainingTimeStr);
+			}
 			iteration[0]++;
+		});
 		});
 
 		System.out.println(validVertexCombinations.size());

@@ -89,12 +89,40 @@ public class IcosahedralGenerators {
         //M11_Vertex_Shallow_Fivefold();
         // M12_ThreeAxis();
         //M12_5_11();
-        TrapentrixFinder();
+        //TrapentrixFinder();
         //M12_VertexAxis_VertexPcs();
         //M11_12_VertexAxis_EdgePcs();
+        //bauhinia_ree3_3();
         //M24_Search();
+        M12_snub_tetrahedron();
     }
-    
+
+
+    public static void M12_snub_tetrahedron() {
+
+        // Tetrahedral symmetries
+        String tet1 = "(4,3,6)(7,12,10)(1,9,8)(2,11,5)";
+        String tet2 = "(1,2,12)(3,5,9)(8,10,4)(6,7,11)";
+        String tet3 = "(5,7,8)(1,4,11)(9,12,6)(3,10,2)";
+        String tet4 = "(10,9,11)(2,8,6)(7,3,1)(5,4,12)";
+
+        String cycles = "(2,3,12)(1,8,9)(4,5,7)";
+
+        String combinations = "[" +
+            cycles + "," +
+            tet1 + "," +
+            tet2 + "," +
+            tet3 + "," +
+            tet4 + "]";
+
+        // "[(2,3,12)(1,8,9)(4,5,7),(1,9,2)(12,4,5)(6,10,3),(12,5,1)(3,2,10)(8,9,11),(4,3,6)(7,12,10)(1,9,8)(2,11,5)]"
+        GroupExplorer group = new GroupExplorer(
+            combinations,
+            MemorySettings.DEFAULT);
+        
+            exploreGroup(group, null);
+    }
+
     
     public static void M24_Search() {
         
@@ -175,6 +203,75 @@ public class IcosahedralGenerators {
     }
 
 
+
+    public static void bauhinia_ree3_3() {
+        // Pretty sure you can get ree3_3 with two cuts as well
+        // A9 is possible using 3x 3-cycles
+
+        GroupExplorer group = new GroupExplorer(
+        Generators.ree3_3,
+            MemorySettings.FASTEST);
+        
+        ArrayList<int[][]> generatorCandidates = new ArrayList<>();
+        ArrayList<int[][]> generatorCandidates2 = new ArrayList<>();
+        exploreGroup(group, (state, cycleDescription) -> {
+           
+            if (cycleDescription.equals("dual 3-cycles")) {
+                if (Math.random() > 0.5) generatorCandidates.add(GroupExplorer.stateToCycles(state));
+            }
+            if (cycleDescription.equals("dual 3-cycles")) {
+                if (Math.random() > 0.5) generatorCandidates2.add(GroupExplorer.stateToCycles(state));
+            }
+
+        });
+        
+        Map<Generator, Integer> generatorPairs = findGeneratorPairs(group, generatorCandidates, generatorCandidates2, true);
+
+        reportReducedIsomorphisms(generatorPairs);
+
+        System.out.println("Searching for icosahedral generators");
+
+        boolean foundMatch = false;
+        int checkedIcosahedralGenerators = 0;
+        HashMap<String, Integer> matchingGenerators = new HashMap<>();
+
+        // Loop through each possible combination of 2 vertices from the icosahedron as generator 1
+        for (int[] c : Permu.generateCombinations(dodecahedronFaceAboutVertex.length, 4)) {
+            
+            int[][][] generator = new int[2][][];
+            boolean[][] fixedCycleIndices = new boolean[][] {
+                {false, false},
+                {true, true}
+            };
+
+            generator[0] = new int[][] {
+                dodecahedronFaceAboutVertex[c[0]],
+                dodecahedronFaceAboutVertex[c[1]],
+            };
+            generator[1] = new int[][] {
+                dodecahedronFaceAboutVertex[c[2]],
+                dodecahedronFaceAboutVertex[c[3]],
+            };
+
+            for (int[][][] genCandidate : CycleInverter.generateInvertedCycles(fixedCycleIndices, generator)) {
+                Generator g = new Generator(GroupExplorer.renumberGenerators(genCandidate));
+                checkedIcosahedralGenerators++;
+                if (generatorPairs.containsKey(g)) {
+                    if (!foundMatch) {
+                        System.out.println("Found a match! #" + generatorPairs.get(g));
+                        System.out.println(GroupExplorer.generatorsToString(genCandidate));
+                        foundMatch = true;
+                    }
+                    matchingGenerators.put(GroupExplorer.generatorsToString(genCandidate), generatorPairs.get(g));
+                }
+            }
+        }
+
+        System.out.println("Checked " + checkedIcosahedralGenerators + " icosahedral generators");
+        
+        reportMatchingGenerators(matchingGenerators);
+
+    }
 
     public static void M11_12_VertexAxis_EdgePcs() {
         // 1/2 of the trapentrix points correspond to 9 faces on a rhombic triacontahedron
@@ -571,7 +668,7 @@ public class IcosahedralGenerators {
     public static void TrapentrixFinder() {
         // 1/2 of the trapentrix points correspond to 9 faces on a rhombic triacontahedron
 
-        GroupExplorer group = new GroupExplorer(Generators.ree3, MemorySettings.FASTEST);
+        GroupExplorer group = new GroupExplorer(Generators.ree3_3, MemorySettings.FASTEST);
         
         ArrayList<int[][]> generatorCandidates = new ArrayList<>();
         ArrayList<int[][]> generatorCandidates2 = new ArrayList<>();
@@ -995,9 +1092,10 @@ public class IcosahedralGenerators {
     }
 
     public static void M12_Vertex_Shallow_Threefold() {
-        
-        GroupExplorer group = new GroupExplorer(Generators.m12, MemorySettings.FASTEST);
-        
+        GroupExplorer group = new GroupExplorer(
+                Generators.m12,
+                MemorySettings.DEFAULT);
+
         ArrayList<int[][]> generatorCandidates = new ArrayList<>();
         ArrayList<int[][]> generatorCandidates2 = new ArrayList<>();
         exploreGroup(group, (state, cycleDescription) -> {
@@ -1031,7 +1129,7 @@ public class IcosahedralGenerators {
             };
 
             generator[0] = new int[][] {
-                {1, 2,12}, {3, 5, 9}, {4, 10, 8}, {11, 7, 6}
+                {1, 2,12}, {3, 5, 9}, {8, 10, 4}, {6, 7, 11}
             };
             generator[1] = new int[][] {
                 dodecahedronFaceAboutVertex_Shallow[c[0]],
