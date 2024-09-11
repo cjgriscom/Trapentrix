@@ -53,12 +53,12 @@ public class GeneratorPairSearch {
                             success[0] = true;
                             throw new RuntimeException();
                         }
-                        //if (depth <= 14) System.out.print(depth + " " + states.size() + " ");
+                        //if (depth <= 30) System.out.print(depth + " " + states.size() + " ");
 
                     });
-                    //System.out.println();
 
                 } catch (RuntimeException e) {}
+                //System.out.println();
 
                 if (success[0]) {
                     generatorPairs.add(new Generator(generator));
