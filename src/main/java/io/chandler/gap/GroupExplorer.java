@@ -249,8 +249,8 @@ public class GroupExplorer implements AbstractGroupProperties {
         Stream<State> stream;
         Set<State> transferList;
 
-        // Parallelize when we get close to the 3m mark
-        if (sizeInit > 3_000_000) {
+        // Parallelize
+        if (sizeInit > 10000) {
             incompleteAdditions = ConcurrentHashMap.newKeySet();
             peekList = Collections.synchronizedList(new ArrayList<int[]>());
             stream = stateMapIncomplete.parallelStream();

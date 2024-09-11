@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import io.chandler.gap.GroupExplorer.Generator;
@@ -69,7 +70,7 @@ public class CubicGenerators {
 		// For each pair of other 6p 4-cycles...
 
 
-;
+
 		while (true) {
 			
 			// Take a random pair selection
@@ -115,28 +116,16 @@ public class CubicGenerators {
 		
 
 	}
-	public static void main(String[] args) throws Exception {
-		
 
-		GroupExplorer cube = new GroupExplorer(cubicPISymmetries_2, MemorySettings.FASTEST);
-		
-		IcosahedralGenerators.exploreGroup(cube, null);
-		
-
-		HashSet<Integer> uniqueFaces = new HashSet<>();
-
-		boolean[][] fixedCycleIndices = new boolean[][] {
-			{true, true, true, true, true, true},
-			//{true, true, true, true, true, true},
-			{true, false, false, false, false, false},
-		};
-
-		
-		int[][][] symm = GroupExplorer.parseOperationsArr(cubicPISymmetries);
-		System.out.println(GroupExplorer.generatorsToString(GroupExplorer.renumberGenerators_fast(symm)));
+	private static ArrayList<Generator> getVertexCombinations() {
 
 		HashSet<Generator> generatorCache = new HashSet<>();
 
+		boolean[][] fixedCycleIndices = new boolean[][] {
+			{true, false, false, false, false, false},
+		};
+
+		HashSet<Integer> uniqueFaces = new HashSet<>();
 		PermuCallback.generateCombinations(32, 6, (b) -> {
 	
 
@@ -160,8 +149,6 @@ public class CubicGenerators {
 			if (uniqueFaces.size() == 6*3) {
 
 				int[][][] genSrc = new int[][][] {
-					symm[0],
-					//symm[1],
 					cyclesA,
 				};
 				List<int[][][]> cycled = CycleInverter.generateInvertedCycles(fixedCycleIndices, genSrc);
@@ -176,10 +163,23 @@ public class CubicGenerators {
 		});
 
 		ArrayList<Generator> validVertexCombinations = new ArrayList<>(generatorCache);
-		Collections.shuffle(validVertexCombinations);
+		
+		return validVertexCombinations;
+	}
+	public static void main(String[] args) throws Exception {
+		
 
-		// Sanity check: Good M24 gen should be valid
-		validVertexCombinations.add(0, new Generator(GroupExplorer.parseOperationsArr(Generators.m24)));
+		GroupExplorer cube = new GroupExplorer(cubicPISymmetries_2, MemorySettings.FASTEST);
+		
+		IcosahedralGenerators.exploreGroup(cube, null);
+		
+		
+		int[][][] symm = GroupExplorer.parseOperationsArr(cubicPISymmetries);
+		System.out.println(GroupExplorer.generatorsToString(GroupExplorer.renumberGenerators_fast(symm)));
+
+
+		ArrayList<Generator> validVertexCombinations = getVertexCombinations();
+		Collections.shuffle(validVertexCombinations);
 		
 		System.out.println("Found " + validVertexCombinations.size() + " possible generators");
 		
@@ -187,91 +187,140 @@ public class CubicGenerators {
 		long combinations = validVertexCombinations.size();
 		long startTime = System.currentTimeMillis();
 
-		HashMap<Integer, Integer> orderCounts = new HashMap<>();
+		// Synchronized
+		List<String> results = Collections.synchronizedList(new ArrayList<String>());
+		Map<Integer, List<String>> smallGroupGenerators =Collections.synchronizedMap(new HashMap<>());
 
-		Iterator<Generator> iter = validVertexCombinations.iterator();
-		while (iter.hasNext()) {
-			Generator g = iter.next();
+		for (Generator vertices : validVertexCombinations) {
+
 			if (iteration[0] % 10 == 0) {
-				printProgressEstimate(iteration[0], combinations, startTime, validVertexCombinations.size());
+				printProgressEstimate(iteration[0], combinations, startTime, validVertexCombinations.size(), results.size());
 			}
 
-			String genString = GroupExplorer.generatorsToString(g.generator());
-			GroupExplorer candidate = new GroupExplorer(
-				genString,
-				MemorySettings.DEFAULT);
-			
-			GroupExplorer candidate_m12cache = new GroupExplorer(
-				genString,
-				MemorySettings.DEFAULT, new M24StateCache());
+			Generator[] randomPool = new Generator[90];
+			for (int i = 0; i < randomPool.length; i++) {
+				tryagain: while (true) {
+					int r = (int)(Math.random() * validVertexCombinations.size());
+					
+					Generator g = new Generator(new int[][][] {
+						validVertexCombinations.get(r).generator()[0],
+						vertices.generator()[0]});
 
-			ArrayList<String> depthPeek = new ArrayList<>();
-			int startCheckingRatioIncreaseAtOrder = 313692;/// 739215;
-			int limit = 30400000 / 4;
-			int[] stateCount = new int[2];
-			int[] stateCountB = new int[1];
-			int iters = -2;
+					// Check coverage of faces is greater than 21
+					int[] faceCoverage = new int[24];
+					for (int[][] cycles : g.generator()) {
+						for (int[] cycle : cycles) {
+							for (int f : cycle) faceCoverage[f - 1]++;
+						}
+					}
+					// Count how many faces have coverage of 1 or more
+					int coverageCount = 0;
+					for (int f : faceCoverage) {
+						if (f >= 1) coverageCount++;
+					}
+					if (coverageCount <= 21) {
+						//System.out.println("Skip");
+						continue tryagain;
+					}
 
-			//System.out.println(genString);
-			
-			double lastRatio = 0;
-			candidate.initIterativeExploration();
-			candidate_m12cache.initIterativeExploration();
-			while (iters == -2) {
-				int[] depthA = new int[] {0};
-				iters = candidate.iterateExploration(false, limit, (states, depth) -> {
-					stateCount[0] = stateCount[1];
-					stateCount[1] += states.size();
-					depthA[0] = depth;
-				});
-				candidate_m12cache.iterateExploration(false, limit, (states, depth) -> {
-					stateCountB[0] += states.size();
-				});
-				int depth = depthA[0];
-				double ratio = depth < 2 ? 10000 : stateCount[1]/(double)stateCount[0];
-				if (depth > 5 ) depthPeek.add(ratio+" " + stateCount[1] + ",");
+					// Make sure none of the cycles are the same
+					for (int[] cycleA : g.generator()[0]) {
+						int[] sortedCycleA = Arrays.copyOf(cycleA, cycleA.length);
+						Arrays.sort(sortedCycleA); // Sort the elements of cycleA
 
-				//System.out.println(stateCountB[0] + " " + stateCount[1]);
+						for (int[] cycleB : g.generator()[1]) {
+							int[] sortedCycleB = Arrays.copyOf(cycleB, cycleB.length);
+							Arrays.sort(sortedCycleB); // Sort the elements of cycleB
 
-				// Heuristic 1: If the ratio of states is increasing, it's not going to converge quickly
-				boolean isDecreasing = ratio - lastRatio < 0.01;
-				if (!isDecreasing && stateCount[1] > startCheckingRatioIncreaseAtOrder) {
-					iters = -2;
-					//System.out.println("Ratio rate increase");
+							if (Arrays.equals(sortedCycleA, sortedCycleB)) {
+								continue tryagain; // Skip if any cycle contains the same elements
+							}
+						}
+					}
+
+					randomPool[i] = g;
 					break;
+				}
+			}
+
+			Arrays.stream(randomPool).parallel().forEach(g -> {
+
+				String genString = GroupExplorer.generatorsToString(g.generator());
+				GroupExplorer candidate = new GroupExplorer(
+					genString,
+					MemorySettings.DEFAULT);
+				
+				GroupExplorer candidate_m12cache = new GroupExplorer(
+					genString,
+					MemorySettings.DEFAULT, new M24StateCache());
+
+				ArrayList<String> depthPeek = new ArrayList<>();
+				int startCheckingRatioIncreaseAtOrder = 313692;/// 739215;
+				int limit = 30400000 / 4;
+				int[] stateCount = new int[2];
+				int[] stateCountB = new int[1];
+				int iters = -2;
+
+				//System.out.println(genString);
+				
+				double lastRatio = 0;
+				candidate.initIterativeExploration();
+				candidate_m12cache.initIterativeExploration();
+				while (iters == -2) {
+					int[] depthA = new int[] {0};
+					iters = candidate.iterateExploration(false, limit, (states, depth) -> {
+						stateCount[0] = stateCount[1];
+						stateCount[1] += states.size();
+						depthA[0] = depth;
+					});
+					candidate_m12cache.iterateExploration(false, limit, (states, depth) -> {
+						stateCountB[0] += states.size();
+					});
+					int depth = depthA[0];
+					double ratio = depth < 2 ? 10000 : stateCount[1]/(double)stateCount[0];
+					if (depth > 5 ) depthPeek.add(ratio+" " + stateCount[1] + ",");
+
+					//System.out.println(stateCountB[0] + " " + stateCount[1]);
+
+					// Heuristic 1: If the ratio of states is increasing, it's not going to converge quickly
+					boolean isDecreasing = ratio - lastRatio < 0.01;
+					if (!isDecreasing && stateCount[1] > startCheckingRatioIncreaseAtOrder) {
+						iters = -2;
+						//System.out.println("Ratio rate increase");
+						break;
+					}
+					
+					// Heuristic 2: If the M24 cache is different we've generated a non-M24 group
+					if (stateCountB[0] != stateCount[1]) {
+						// M24 cache is different
+						// fail because this doesn't happen for valid M24 generators
+						iters = -2;
+						//System.out.println("M24 cache is different");
+						break;
+					}
+					lastRatio = ratio;
+				}
+
+				if (iters == -2) {
+					/*if (depthPeek.size() > 4) {
+						System.out.println("Reject " + iters + " Last iter states: " + depthPeek.get(depthPeek.size() - 1) + " Depth: " + depthPeek.size());
+						System.out.println(depthPeek.toString());
+					}*/
+				} else if (iters == -1) {
+					System.out.println("Iters: " + iters + " Last iter states: " + depthPeek.get(depthPeek.size() - 1) + " Depth: " + depthPeek.size());
+					System.out.println( GroupExplorer.generatorsToString(g.generator()));
+					System.out.println(depthPeek.toString());
+					results.add(GroupExplorer.generatorsToString(g.generator()));
+				} else if (candidate.order() > 30000) {
+					// Add genString to smallGroupGenerators
+					List<String> gens = smallGroupGenerators.computeIfAbsent(candidate.order(), k -> Collections.synchronizedList(new ArrayList<String>()));
+					gens.add(genString);
+					System.out.println("Found order " + (candidate.order()) + ": " + GroupExplorer.generatorsToString(g.generator()));
 				}
 				
-				// Heuristic 2: If the M24 cache is different we've generated a non-M24 group
-				if (stateCountB[0] != stateCount[1]) {
-					// M24 cache is different
-					// fail because this doesn't happen for valid M24 generators
-					iters = -2;
-					//System.out.println("M24 cache is different");
-					break;
-				}
-				lastRatio = ratio;
-			}
-
-			if (iters == -2) {
-				/*if (depthPeek.size() > 4) {
-					System.out.println("Reject " + iters + " Last iter states: " + depthPeek.get(depthPeek.size() - 1) + " Depth: " + depthPeek.size());
-					System.out.println(depthPeek.toString());
-				}*/
-				iter.remove();
-			} else if (iters == -1) {
-				System.out.println("Iters: " + iters + " Last iter states: " + depthPeek.get(depthPeek.size() - 1) + " Depth: " + depthPeek.size());
-				System.out.println( GroupExplorer.generatorsToString(g.generator()));
-				System.out.println(depthPeek.toString());
-			} else{
-				orderCounts.merge(candidate.order(), 1, Integer::sum);
-				System.out.println("Found order " + (candidate.order()) + ": " + GroupExplorer.generatorsToString(new int[][][] {g.generator()[g.generator.length -1]}));
-				iter.remove();
-			}
-			
 
 			
-
-
+			});
 
 
 			iteration[0]++;
@@ -287,11 +336,24 @@ public class CubicGenerators {
 		}
 		out.close();
 
-		System.out.println("Order counts: " + orderCounts.toString());
+		System.out.println("Small groups: ");
+		for (Map.Entry<Integer, List<String>> e : smallGroupGenerators.entrySet()) {
+			System.out.println("Order " + e.getKey() + ": " + e.getValue().size());
+		}
+
+		Files.deleteIfExists(Paths.get("valid_small_generators.txt"));
+		PrintStream out2 = new PrintStream("valid_small_generators.txt");
+		for (Map.Entry<Integer, List<String>> e : smallGroupGenerators.entrySet()) {
+			out2.println("Order " + e.getKey() + ":");
+			for (String genString : e.getValue()) {
+				out2.println(genString);
+			}
+		}
+		out2.close();
 	}
 
 
-    private static void printProgressEstimate(int currentIteration, long totalCombinations, long startTime, int validCombinations) {
+    private static void printProgressEstimate(int currentIteration, long totalCombinations, long startTime, int validCombinations, int results) {
         long currentTime = System.currentTimeMillis();
         long elapsedTime = currentTime - startTime;
         long estimatedTotalTime = (long) ((double) elapsedTime / currentIteration * totalCombinations);
@@ -302,7 +364,7 @@ public class CubicGenerators {
             (remainingTime % 3600000) / 60000,
             (remainingTime % 60000) / 1000);
         
-        System.out.println(currentIteration + " / " + totalCombinations + " -> " + validCombinations +
+        System.out.println(currentIteration + " / " + totalCombinations + " -> " + results +
             " | Estimated time remaining: " + remainingTimeStr);
     }
 }

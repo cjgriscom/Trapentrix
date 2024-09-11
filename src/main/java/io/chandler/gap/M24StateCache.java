@@ -13,15 +13,15 @@ public class M24StateCache extends AbstractSet<State> {
     }
 
     /**
-     * This is non-optimal but it allows the M24 cache to fit in my 32gb of RAM
+     * This is perhaps non-optimal but it allows the M24 cache to fit in my 32gb of RAM
      * 
      * It's also useful for checking mismatch between a sharply transitive cache
      *   vs an ordinary cache to shave off iterations
      * 
-     * I think 7 is optimal, i.e. once you've chosen 7 positions there is only one way to permute the rest
+     * Once you've chosen 7 positions there is only one way to permute the rest
      * 
-     * Use the assumption that we don't need to store the entire state
-     *   for comparisons, just the first few positions (i.e. what fits into 8 bytes)
+     * TODO I think maybe you can squeeze 7 states into an int32
+     * 
      * @param state
      * @return
      */
