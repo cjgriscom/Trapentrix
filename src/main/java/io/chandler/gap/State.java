@@ -35,6 +35,8 @@ public abstract class State {
             this.factorialRepresentation = encodeFactorial(state).toByteArray();
         }
 
+		// s
+
 		private BigInteger encodeFactorial(int[] state) {
 			BigInteger result = BigInteger.ZERO;
 			boolean[] used = new boolean[state.length + 1];

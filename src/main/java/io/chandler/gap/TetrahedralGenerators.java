@@ -244,12 +244,6 @@ public class TetrahedralGenerators {
 				iter.remove();
 			}
 			
-
-			
-
-
-
-
 			iteration[0]++;
 		}
 
