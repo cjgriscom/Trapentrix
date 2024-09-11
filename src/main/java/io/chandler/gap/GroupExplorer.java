@@ -14,6 +14,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 
@@ -224,59 +225,88 @@ public class GroupExplorer implements AbstractGroupProperties {
         return result;
     }
 
+
+    int lastSize = 0;
+    int iteration = 0;
+
+    public void initIterativeExploration() {
+        stateMapIncomplete.add(State.of(elements.clone(), nElements, mem));
+
+        lastSize = 0;
+        iteration = 0;
+    }
+
+    public int iterateExploration(boolean debug, int stateLimit, BiConsumer<List<int[]>, Integer> peekStateAndDepth) {
+        int size = stateMap.size() + stateMapIncomplete.size();
+        if (debug) System.out.println("Depth: " + iteration + " - " + (size - lastSize) + " - " + size);
+        lastSize = size;
+        iteration++;
+
+        long sizeInit = stateMap.size() + stateMapIncomplete.size();
+
+        Set<State> incompleteAdditions;
+        List<int[]> peekList;
+        Stream<State> stream;
+        Set<State> transferList;
+
+        // Parallelize when we get close to the 3m mark
+        if (sizeInit > 3_000_000) {
+            incompleteAdditions = ConcurrentHashMap.newKeySet();
+            peekList = Collections.synchronizedList(new ArrayList<int[]>());
+            stream = stateMapIncomplete.parallelStream();
+            transferList = ConcurrentHashMap.newKeySet();
+        } else {
+            incompleteAdditions = new HashSet<State>();
+            peekList = new ArrayList<int[]>();
+            stream = stateMapIncomplete.stream();
+            transferList = new HashSet<State>();
+        }
+
+        stream.forEach((state) -> {
+            int[] currentState = state.state();
+
+            boolean added = false;
+            for (int[][] operation : parsedOperations) {
+                int[] newState = applyOperation(currentState, operation);
+                State s = State.of(newState, nElements, mem);
+
+                if (!stateMapIncomplete.contains(s) && !stateMap.contains(s)) {
+                    boolean addedFresh = incompleteAdditions.add(s);
+                    if (addedFresh && peekStateAndDepth != null) peekList.add(newState);
+                    added = true;
+                }
+            }
+            if (!added) {
+                transferList.add(state);
+            }
+        });
+        if (peekList.size() > 0) {
+            peekStateAndDepth.accept(peekList, iteration);
+        }
+        stateMap.addAll(transferList);
+        stateMapIncomplete.removeAll(transferList);
+        stateMapIncomplete.addAll(incompleteAdditions);
+        
+        long sizeEnd = stateMap.size() + stateMapIncomplete.size();
+        if (sizeInit == sizeEnd) {
+            //System.out.println("Finished - " + stateMap.size() + " / " + stateMapIncomplete.size());
+            return iteration;
+        }
+        if (stateLimit > 0 && sizeEnd > stateLimit) return -1;
+
+        return -2;
+    }
+
     public int exploreStates(boolean debug, BiConsumer<List<int[]>, Integer> peekStateAndDepth) {
        return exploreStates(debug, -1, peekStateAndDepth);
     }
     public int exploreStates(boolean debug, int stateLimit, BiConsumer<List<int[]>, Integer> peekStateAndDepth) {
-        stateMapIncomplete.add(State.of(elements.clone(), nElements, mem));
-
-        int lastSize = 0;
-        int iteration = 0;
+        initIterativeExploration();
         
         while (true) {
-            int size = stateMap.size() + stateMapIncomplete.size();
-            if (debug) System.out.println("Depth: " + iteration + " - " + (size - lastSize) + " - " + size);
-            lastSize = size;
-            iteration++;
-
-            long sizeInit = stateMap.size() + stateMapIncomplete.size();
-
-            Set<State> incompleteAdditions = ConcurrentHashMap.newKeySet();
-            List<int[]> peekList = Collections.synchronizedList(new ArrayList<int[]>());
-
-            Set<State> transferList = ConcurrentHashMap.newKeySet();
-            
-            stateMapIncomplete.parallelStream().forEach((state) -> {
-                int[] currentState = state.state();
-
-                boolean added = false;
-                for (int[][] operation : parsedOperations) {
-                    int[] newState = applyOperation(currentState, operation);
-                    State s = State.of(newState, nElements, mem);
-
-                    if (!stateMapIncomplete.contains(s) && !stateMap.contains(s)) {
-                        boolean addedFresh = incompleteAdditions.add(s);
-                        if (addedFresh && peekStateAndDepth != null) peekList.add(newState);
-                        added = true;
-                    }
-                }
-                if (!added) {
-                    transferList.add(state);
-                }
-            });
-            if (peekList.size() > 0) {
-                peekStateAndDepth.accept(peekList, iteration);
-            }
-            stateMap.addAll(transferList);
-            stateMapIncomplete.removeAll(transferList);
-            stateMapIncomplete.addAll(incompleteAdditions);
-            
-            long sizeEnd = stateMap.size() + stateMapIncomplete.size();
-            if (sizeInit == sizeEnd) {
-                //System.out.println("Finished - " + stateMap.size() + " / " + stateMapIncomplete.size());
-                return iteration;
-            }
-            if (stateLimit > 0 && sizeEnd > stateLimit) return -1;
+            int ret = iterateExploration(debug, stateLimit, peekStateAndDepth);
+            if (ret == -2) continue;
+            return ret;
         }
     }
 

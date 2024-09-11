@@ -5,6 +5,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -27,12 +28,16 @@ public class CubicGenerators {
 		"(3,18,19,5)(1,16,20,6)(2,17,21,4)" + // Face 3 CW
 		"(9,11,14,24)(7,12,15,22)(8,10,13,23)" + // Face 5 CCW
 		"]";
-	public static final String cubicPISymmetries = "[" +
+	public static final String cubicPISymmetries_2 = "[" +
 		"(1,4,7,10)(2,5,8,11)(3,6,9,12)" + // Face 1 CW
 		"(17,20,23,15)(13,18,21,24)(16,19,22,14)" + // Face 6 CCW
 		"," +
 		"(2,12,13,16)(3,10,14,17)(1,11,15,18)" + // Face 2 CW
 		"(6,8,22,21)(4,9,23,19)(5,7,24,20)" + // Face 4 CCW
+		"]";
+	public static final String cubicPISymmetries = "[" +
+		"(1,4,7,10)(2,5,8,11)(3,6,9,12)" + // Face 1 CW
+		"(17,20,23,15)(13,18,21,24)(16,19,22,14)" + // Face 6 CCW
 		"]";
 
 	public static void mainCheckResult(String[] args) {
@@ -111,14 +116,9 @@ public class CubicGenerators {
 
 	}
 	public static void main(String[] args) throws Exception {
-
-		HashSet<Generator> validVertexCombinations = new HashSet<>();
 		
 
-		int[][][] symm = GroupExplorer.parseOperationsArr(cubicPISymmetries);
-		System.out.println(GroupExplorer.generatorsToString(GroupExplorer.renumberGenerators_fast(symm)));
-
-		GroupExplorer cube = new GroupExplorer(cubicPISymmetries, MemorySettings.FASTEST);
+		GroupExplorer cube = new GroupExplorer(cubicPISymmetries_2, MemorySettings.FASTEST);
 		
 		IcosahedralGenerators.exploreGroup(cube, null);
 		
@@ -127,9 +127,15 @@ public class CubicGenerators {
 
 		boolean[][] fixedCycleIndices = new boolean[][] {
 			{true, true, true, true, true, true},
-			{true, true, true, true, true, true},
+			//{true, true, true, true, true, true},
 			{true, false, false, false, false, false},
 		};
+
+		
+		int[][][] symm = GroupExplorer.parseOperationsArr(cubicPISymmetries);
+		System.out.println(GroupExplorer.generatorsToString(GroupExplorer.renumberGenerators_fast(symm)));
+
+		HashSet<Generator> generatorCache = new HashSet<>();
 
 		PermuCallback.generateCombinations(32, 6, (b) -> {
 	
@@ -155,20 +161,26 @@ public class CubicGenerators {
 
 				int[][][] genSrc = new int[][][] {
 					symm[0],
-					symm[1],
+					//symm[1],
 					cyclesA,
 				};
 				List<int[][][]> cycled = CycleInverter.generateInvertedCycles(fixedCycleIndices, genSrc);
 
 				for (int[][][] c : cycled) {
 					Generator g = new Generator(c);
-					validVertexCombinations.add(g);
+					generatorCache.add(g);
 				}
 				
 			}
 
 		});
 
+		ArrayList<Generator> validVertexCombinations = new ArrayList<>(generatorCache);
+		Collections.shuffle(validVertexCombinations);
+
+		// Sanity check: Good M24 gen should be valid
+		validVertexCombinations.add(0, new Generator(GroupExplorer.parseOperationsArr(Generators.m24)));
+		
 		System.out.println("Found " + validVertexCombinations.size() + " possible generators");
 		
 		int[] iteration = new int[] {0};
@@ -184,34 +196,60 @@ public class CubicGenerators {
 				printProgressEstimate(iteration[0], combinations, startTime, validVertexCombinations.size());
 			}
 
+			String genString = GroupExplorer.generatorsToString(g.generator());
 			GroupExplorer candidate = new GroupExplorer(
-				GroupExplorer.generatorsToString(g.generator()),
-				MemorySettings.FASTEST);
+				genString,
+				MemorySettings.DEFAULT);
 			
+			GroupExplorer candidate_m12cache = new GroupExplorer(
+				genString,
+				MemorySettings.DEFAULT, new M24StateCache());
+
 			ArrayList<String> depthPeek = new ArrayList<>();
-			int limit = 30376958;
+			int startCheckingRatioIncreaseAtOrder = 313692;/// 739215;
+			int limit = 30400000 / 4;
 			int[] stateCount = new int[2];
-			int iters;
+			int[] stateCountB = new int[1];
+			int iters = -2;
+
+			//System.out.println(genString);
 			
-			double[] lastRatio = new double[] {0};
-			try { iters = candidate.exploreStates(false, limit, (states, depth) -> {
-				stateCount[0] = stateCount[1];
-				stateCount[1] += states.size();
+			double lastRatio = 0;
+			candidate.initIterativeExploration();
+			candidate_m12cache.initIterativeExploration();
+			while (iters == -2) {
+				int[] depthA = new int[] {0};
+				iters = candidate.iterateExploration(false, limit, (states, depth) -> {
+					stateCount[0] = stateCount[1];
+					stateCount[1] += states.size();
+					depthA[0] = depth;
+				});
+				candidate_m12cache.iterateExploration(false, limit, (states, depth) -> {
+					stateCountB[0] += states.size();
+				});
+				int depth = depthA[0];
 				double ratio = depth < 2 ? 10000 : stateCount[1]/(double)stateCount[0];
 				if (depth > 5 ) depthPeek.add(ratio+" " + stateCount[1] + ",");
 
-				/*if (depth == 12 && stateCount[0] > 1049999) {
-					throw new RuntimeException();
-				}*/
-				if (depth > 3 && ratio > lastRatio[0]) {
-					throw new RuntimeException();
+				//System.out.println(stateCountB[0] + " " + stateCount[1]);
+
+				// Heuristic 1: If the ratio of states is increasing, it's not going to converge quickly
+				boolean isDecreasing = ratio - lastRatio < 0.01;
+				if (!isDecreasing && stateCount[1] > startCheckingRatioIncreaseAtOrder) {
+					iters = -2;
+					//System.out.println("Ratio rate increase");
+					break;
 				}
-				if (depth > 17 && ratio > 2.5) {
-					throw new RuntimeException();
+				
+				// Heuristic 2: If the M24 cache is different we've generated a non-M24 group
+				if (stateCountB[0] != stateCount[1]) {
+					// M24 cache is different
+					// fail because this doesn't happen for valid M24 generators
+					iters = -2;
+					//System.out.println("M24 cache is different");
+					break;
 				}
-				lastRatio[0] = ratio;
-			}); } catch (RuntimeException e) {
-				iters = -2;
+				lastRatio = ratio;
 			}
 
 			if (iters == -2) {
@@ -222,7 +260,7 @@ public class CubicGenerators {
 				iter.remove();
 			} else if (iters == -1) {
 				System.out.println("Iters: " + iters + " Last iter states: " + depthPeek.get(depthPeek.size() - 1) + " Depth: " + depthPeek.size());
-				System.out.println( GroupExplorer.generatorsToString(new int[][][] {g.generator()[g.generator.length -1]}));
+				System.out.println( GroupExplorer.generatorsToString(g.generator()));
 				System.out.println(depthPeek.toString());
 			} else{
 				orderCounts.merge(candidate.order(), 1, Integer::sum);
