@@ -14,34 +14,30 @@ import io.chandler.gap.GroupExplorer.MemorySettings;
 
 import static io.chandler.gap.IcosahedralGenerators.dodecahedronFaceAboutVertex_Shallow;
 
-public class TetrahedralGenerators {
+public class ThreeD180Generators {
 
-    public static final String tet1 = "(4,3,6)(7,12,10)(1,9,8)(2,11,5)";
-    public static final String tet2 = "(1,2,12)(3,5,9)(8,10,4)(6,7,11)";
-    public static final String tet3 = "(5,7,8)(1,4,11)(9,12,6)(3,10,2)";
-    public static final String tet4 = "(10,9,11)(2,8,6)(7,3,1)(5,4,12)";
-    
+    // 9 2   10 1   12 11   3 8    6 5   7 4
+
+    // 6 3   4 10   12 11   2 7    5 9   1 8
+    public static final String rot180_1 = "(9,2)(10,1)(12,11)(3,8)(6,5)(7,4)";
+    public static final String rot180_2 = "(6,3)(4,10)(12,11)(2,7)(5,9)(1,8)";
     
     public static void main(String[] args) throws Exception {
 
         HashSet<Generator> validVertexCombinations = new HashSet<>();
         
         int[][][] symm = new int[][][] {
-            GroupExplorer.parseOperationsArr("["+tet1+"]")[0],
-            GroupExplorer.parseOperationsArr("["+tet2+"]")[0],
-            GroupExplorer.parseOperationsArr("["+tet3+"]")[0],
-            GroupExplorer.parseOperationsArr("["+tet4+"]")[0]
+            GroupExplorer.parseOperationsArr("["+rot180_1+"]")[0],
+            GroupExplorer.parseOperationsArr("["+rot180_2+"]")[0]
         };
 
 
         HashSet<Integer> uniqueFaces = new HashSet<>();
 
         boolean[][] fixedCycleIndices = new boolean[][] {
-            {true, true, true, true},
-            {true, true, true, true},
-            {true, true, true, true},
-            {true, true, true, true},
-            {true, false, false},
+            {true, true, true, true, true, true},
+            {true, true, true, true, true, true},
+            {true, false, false, false},
         };
 
         int[][] d = dodecahedronFaceAboutVertex_Shallow;
@@ -50,9 +46,10 @@ public class TetrahedralGenerators {
     
 
             int[][] cyclesA = new int[][] {
-                {10,6,11},
+                
                 d[b[0]],
                 d[b[1]],
+                d[b[2]],
             };
 
 
@@ -68,8 +65,6 @@ public class TetrahedralGenerators {
                 int[][][] genSrc = new int[][][] {
                     symm[0],
                     symm[1],
-                    symm[2],
-                    symm[3],
                     cyclesA,
                 };
                 List<int[][][]> cycled = CycleInverter.generateInvertedCycles(fixedCycleIndices, genSrc);
@@ -150,8 +145,8 @@ public class TetrahedralGenerators {
         System.out.println("Filtered down to " + validVertexCombinations.size() + " valid generators");
         // Write to file 
 
-        Files.deleteIfExists(Paths.get("valid_generators_tetrahedral.txt"));
-        PrintStream out = new PrintStream("valid_generators_tetrahedral.txt");
+        Files.deleteIfExists(Paths.get("valid_generators_3d180.txt"));
+        PrintStream out = new PrintStream("valid_generators_3d180.txt");
         for (Generator g : validVertexCombinations) {
             out.println(GroupExplorer.generatorsToString(g.generator()));
         }

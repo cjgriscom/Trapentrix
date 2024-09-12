@@ -14,195 +14,27 @@ import java.util.TreeMap;
 import io.chandler.gap.GroupExplorer.Generator;
 import io.chandler.gap.GroupExplorer.MemorySettings;
 
-public class CubicGenerators {
+public class MirrorGenerators {
 
-    public static final String cubicPISymmetries3 = "[" +
-        "(1,4,7,10)(2,5,8,11)(3,6,9,12)" + // Face 1 CW
-        "(17,20,23,15)(13,18,21,24)(16,19,22,14)" + // Face 6 CCW
-        "," +
-        "(2,12,13,16)(3,10,14,17)(1,11,15,18)" + // Face 2 CW
-        "(6,8,22,21)(4,9,23,19)(5,7,24,20)" + // Face 4 CCW
-        "," +
-        "(3,18,19,5)(1,16,20,6)(2,17,21,4)" + // Face 3 CW
-        "(9,11,14,24)(7,12,15,22)(8,10,13,23)" + // Face 5 CCW
-        "]";
-    public static final String cubicPISymmetries_2 = "[" +
-        "(1,4,7,10)(2,5,8,11)(3,6,9,12)" + // Face 1 CW
-        "(17,20,23,15)(13,18,21,24)(16,19,22,14)" + // Face 6 CCW
-        "," +
-        "(2,12,13,16)(3,10,14,17)(1,11,15,18)" + // Face 2 CW
-        "(6,8,22,21)(4,9,23,19)(5,7,24,20)" + // Face 4 CCW
-        "]";
-    public static final String cubicPISymmetries = "[" +
-        "(1,4,7,10)(2,5,8,11)(3,6,9,12)" + // Face 1 CW
-        "(17,20,23,15)(13,18,21,24)(16,19,22,14)" + // Face 6 CCW
-        "]";
+    private static final int[][] piMirror3 = {
+        //{2, 10, 20}, {20, 23, 21}, // Tentative 1
+        //{12, 11, 10}, {23, 24, 22}, // Tentative 2
+        {17, 18, 1}, {5, 4, 1},
+        {1, 18, 5}, {3, 20, 19},
+        {2, 20, 3}, {20, 21, 19},
+        {11, 12, 14}, {24, 9, 22},
+        {13, 14, 12}, {9, 8, 22},
+        {13, 15, 14}, {7, 8, 9},
+        {17, 15, 13}, {4, 8, 7},
+        {17, 16, 18}, {4, 5, 6},
+        {3, 18, 16}, {5, 19, 6},
+        {2, 3, 16}, {6, 19, 21},
+        {2, 12, 10}, {22,21,23},
+        {13, 16, 17}, {4, 6, 8},
+    };
 
-	public static int[][] getFace180Symm(int faceIndex) {
-		String face1Symm = GroupExplorer.generatorsToString(new int[][][] {
-			GroupExplorer.parseOperations(CubicGenerators.cubicPISymmetries3).get(faceIndex)});
-
-		GroupExplorer ge_face1 = new GroupExplorer(face1Symm, MemorySettings.DEFAULT, new HashSet<>());
-		ge_face1.resetElements(true);
-		ge_face1.applyOperation(0);
-		ge_face1.applyOperation(0); // 180 deg
-		int[] turn180 = ge_face1.copyCurrentState();
-		return GroupExplorer.stateToCycles(turn180);
-	}
-
-
-	// 180 8p doesn't work...
-	// Cube 8p doesn't work
-	
-
-	public static void main(String[] args) throws Exception {
-		findCube_6p();
-	}
-
-    public static void findCube_6p() throws Exception {
-		
-        int[][] symm0 = GroupExplorer.parseOperationsArr(cubicPISymmetries_2)[0];
-        int[][] symm1 = GroupExplorer.parseOperationsArr(cubicPISymmetries_2)[1];
-
-        System.out.println("Starting cube 6p search");
-        System.out.println("Press Q + Enter at any time to interrupt");
-
-        Thread.sleep(1000);
-
-        ArrayList<Generator> validVertexCombinations = get6pVertexCombinations();
-        Collections.shuffle(validVertexCombinations);
-        
-        System.out.println("Found " + validVertexCombinations.size() + " possible generators");
-        
-        int[] iteration = new int[] {0};
-        long combinations = validVertexCombinations.size();
-        long startTime = System.currentTimeMillis();
-
-        // Synchronized
-        List<String> results = Collections.synchronizedList(new ArrayList<String>());
-        Map<Integer, List<String>> smallGroupGenerators = Collections.synchronizedMap(new TreeMap<>());
-
-        for (Generator vertices : validVertexCombinations) {
-
-            if (checkQuit() == -1) {
-                System.out.println("QUITTING");
-                break;
-            }
-
-            if (iteration[0] % 50 == 0) {
-                checkProgressEstimate(iteration[0], combinations, startTime, validVertexCombinations.size(), results.size());
-            }
-
-			Generator g = new Generator(new int[][][] {
-				symm0,
-				symm1,
-				vertices.generator()[0],
-			});
-
-            //vertices2.parallelStream().forEach(g -> {
-                checkGenerator(g, results, smallGroupGenerators);
-            
-            //});
-
-
-            iteration[0]++;
-        }
-
-        System.out.println("Exited at iteration " + iteration[0] + " / " + combinations);
-
-        System.out.println("Filtered down to " + results.size() + " valid generators");
-        // Write to file 
-
-        System.out.println("Writing results to file");
-
-        Files.deleteIfExists(Paths.get("generators_results.txt"));
-
-        PrintStream out2 = new PrintStream("generators_results.txt");
-        for (Map.Entry<Integer, List<String>> e : smallGroupGenerators.entrySet()) {
-            out2.println("Order " + e.getKey() + ":");
-            for (String genString : e.getValue()) {
-                out2.println(genString);
-            }
-        }
-
-        out2.println("Order ?: ");
-        for (String genString : results) {
-            out2.println(genString);
-        }
-        out2.close();
-    }
-
-	// 180 6p works
-    public static void find180_6p() throws Exception {
-        int[][] symm0 = getFace180Symm(1);
-        int[][] symm1 = getFace180Symm(2);
-
-        System.out.println("Starting 180 search");
-        System.out.println("Press Q + Enter at any time to interrupt");
-
-        Thread.sleep(1000);
-
-        ArrayList<Generator> validVertexCombinations = get6pVertexCombinations();
-        Collections.shuffle(validVertexCombinations);
-        
-        System.out.println("Found " + validVertexCombinations.size() + " possible generators");
-        
-        int[] iteration = new int[] {0};
-        long combinations = validVertexCombinations.size();
-        long startTime = System.currentTimeMillis();
-
-        // Synchronized
-        List<String> results = Collections.synchronizedList(new ArrayList<String>());
-        Map<Integer, List<String>> smallGroupGenerators = Collections.synchronizedMap(new TreeMap<>());
-
-        for (Generator vertices : validVertexCombinations) {
-
-            if (checkQuit() == -1) {
-                System.out.println("QUITTING");
-                break;
-            }
-
-            if (iteration[0] % 10 == 0) {
-                checkProgressEstimate(iteration[0], combinations, startTime, validVertexCombinations.size(), results.size());
-            }
-
-			Generator g = new Generator(new int[][][] {
-				symm0,
-				symm1,
-				vertices.generator()[0],
-			});
-
-            //vertices2.parallelStream().forEach(g -> {
-                checkGenerator(g, results, smallGroupGenerators);
-            
-            //});
-
-
-            iteration[0]++;
-        }
-
-        System.out.println("Exited at iteration " + iteration[0] + " / " + combinations);
-
-        System.out.println("Filtered down to " + results.size() + " valid generators");
-        // Write to file 
-
-        System.out.println("Writing results to file");
-
-        Files.deleteIfExists(Paths.get("generators_results.txt"));
-
-        PrintStream out2 = new PrintStream("generators_results.txt");
-        for (Map.Entry<Integer, List<String>> e : smallGroupGenerators.entrySet()) {
-            out2.println("Order " + e.getKey() + ":");
-            for (String genString : e.getValue()) {
-                out2.println(genString);
-            }
-        }
-
-        out2.println("Order ?: ");
-        for (String genString : results) {
-            out2.println(genString);
-        }
-        out2.close();
+    public static void main(String[] args) throws Exception{
+        fullPairSearch();
     }
 
     public static void fullPairSearch() throws Exception {
@@ -254,7 +86,7 @@ public class CubicGenerators {
                 for (int f : faceCoverage) {
                     if (f >= 1) coverageCount++;
                 }
-                if (coverageCount <= 23) {
+                if (coverageCount != 22 && coverageCount != 23) {
                     //System.out.println("Skip");
                     continue tryagain;
                 }
@@ -277,7 +109,7 @@ public class CubicGenerators {
                 vertices2.add(g);
             }
 
-            System.out.println("Checking " + vertices2.size() + " matches");
+            //System.out.println("Checking " + vertices2.size() + " matches");
 
             vertices2.parallelStream().forEach(g -> {
                 checkGenerator(g, results, smallGroupGenerators);
@@ -321,16 +153,16 @@ public class CubicGenerators {
         };
 
         HashSet<Integer> uniqueFaces = new HashSet<>();
-        PermuCallback.generateCombinations(32, 6, (b) -> {
+        PermuCallback.generateCombinations(piMirror3.length, 6, (b) -> {
     
 
             int[][] cyclesA = new int[][] {
-                PentagonalIcositrahedron.getFacesFromVertex(b[0] + 1),
-                PentagonalIcositrahedron.getFacesFromVertex(b[1] + 1),
-                PentagonalIcositrahedron.getFacesFromVertex(b[2] + 1),
-                PentagonalIcositrahedron.getFacesFromVertex(b[3] + 1),
-                PentagonalIcositrahedron.getFacesFromVertex(b[4] + 1),
-                PentagonalIcositrahedron.getFacesFromVertex(b[5] + 1),
+                piMirror3[b[0]],
+                piMirror3[b[1]],
+                piMirror3[b[2]],
+                piMirror3[b[3]],
+                piMirror3[b[4]],
+                piMirror3[b[5]],
             };
 
 
@@ -342,58 +174,6 @@ public class CubicGenerators {
             }
             
             if (uniqueFaces.size() == 6*3) {
-
-                int[][][] genSrc = new int[][][] {
-                    cyclesA,
-                };
-                List<int[][][]> cycled = CycleInverter.generateInvertedCycles(fixedCycleIndices, genSrc);
-
-                for (int[][][] c : cycled) {
-                    Generator g = new Generator(c);
-                    generatorCache.add(g);
-                }
-                
-            }
-
-        });
-
-        ArrayList<Generator> validVertexCombinations = new ArrayList<>(generatorCache);
-        
-        return validVertexCombinations;
-    }
-
-    private static ArrayList<Generator> get8pVertexCombinations() {
-
-        HashSet<Generator> generatorCache = new HashSet<>();
-
-        boolean[][] fixedCycleIndices = new boolean[][] {
-            {true, false, false, false, false, false, false, false},
-        };
-
-        HashSet<Integer> uniqueFaces = new HashSet<>();
-        PermuCallback.generateCombinations(32, 8, (b) -> {
-    
-
-            int[][] cyclesA = new int[][] {
-                PentagonalIcositrahedron.getFacesFromVertex(b[0] + 1),
-                PentagonalIcositrahedron.getFacesFromVertex(b[1] + 1),
-                PentagonalIcositrahedron.getFacesFromVertex(b[2] + 1),
-                PentagonalIcositrahedron.getFacesFromVertex(b[3] + 1),
-                PentagonalIcositrahedron.getFacesFromVertex(b[4] + 1),
-                PentagonalIcositrahedron.getFacesFromVertex(b[5] + 1),
-                PentagonalIcositrahedron.getFacesFromVertex(b[6] + 1),
-                PentagonalIcositrahedron.getFacesFromVertex(b[7] + 1),
-            };
-
-
-            uniqueFaces.clear();
-            for (int[] cycle : cyclesA) {
-                for (int face : cycle) {
-                    uniqueFaces.add(face);
-                }
-            }
-            
-            if (uniqueFaces.size() == 6*4) {
 
                 int[][][] genSrc = new int[][][] {
                     cyclesA,
@@ -445,7 +225,7 @@ public class CubicGenerators {
     }
 
     private static void checkGenerator(Generator g, List<String> lgGroupResults, Map<Integer, List<String>> smallGroupGenerators) {
-        ParityStateCache cache = new ParityStateCache(new M24StateCache());
+        ParityStateCache cache = new ParityStateCache(new M23StateCache());
         String genString = GroupExplorer.generatorsToString(g.generator());
         GroupExplorer candidate = new GroupExplorer(
             genString,
@@ -454,7 +234,7 @@ public class CubicGenerators {
 
         ArrayList<String> depthPeek = new ArrayList<>();
         int startCheckingRatioIncreaseAtOrder = 313692;/// 739215;
-        int limit = 30400000 / 4;
+        int limit = 443520 + 10;//10200960 + 1;
         int[] stateCount = new int[2];
         int iters = -2;
 
@@ -508,7 +288,7 @@ public class CubicGenerators {
             System.out.println( GroupExplorer.generatorsToString(g.generator()));
             System.out.println(depthPeek.toString());
             lgGroupResults.add(GroupExplorer.generatorsToString(g.generator()));
-        } else if (candidate.order() > 30000) {
+        } else if (candidate.order() >= 443520) {
             // Add genString to smallGroupGenerators
             List<String> gens = smallGroupGenerators.computeIfAbsent(candidate.order(), k -> Collections.synchronizedList(new ArrayList<String>()));
             gens.add(genString);
