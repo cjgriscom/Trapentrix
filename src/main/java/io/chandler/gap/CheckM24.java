@@ -2,9 +2,7 @@ package io.chandler.gap;
 
 import io.chandler.gap.GroupExplorer.MemorySettings;
 
-import java.security.acl.Group;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;

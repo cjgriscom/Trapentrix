@@ -106,7 +106,7 @@ public class GeneratorPairSearch {
                 if (!GroupExplorer.cyclesContainsAllElements(group.elements(), aCycles, bCycles)) continue;
 
                 int[][][] generator = new int[][][] { aCycles, bCycles };
-                generator = GroupExplorer.renumberGenerators(generator);
+                generator = GroupExplorer.renumberGenerators_fast(generator);
                 if (generatorPairs.containsKey(new Generator(generator))) continue;
 
                 String composite = "[" + GroupExplorer.cyclesToNotation(aCycles) + "," + GroupExplorer.cyclesToNotation(bCycles) + "]";
