@@ -21,9 +21,9 @@ public class Dodecahedron {
     private static int vertexCount = 0;
     private static int edgeCount = 0;
     
-    private static final int[][] vertexFaces = new int[20][3];
-    private static int[][] edgeVertices = new int[30][2];
-    private static final int[][] vertexEdges = new int[20][3];
+    public static final int[][] vertexFaces = new int[20][3];
+    public static int[][] edgeVertices = new int[30][2];
+    public static final int[][] vertexEdges = new int[20][3];
 
     static {
         initializeVertexEdges();
@@ -41,6 +41,50 @@ public class Dodecahedron {
         for (int[] symmetry : symmetries) {
             System.out.println(Arrays.toString(symmetry));
         }
+    }
+
+    public static int getCounterclockwiseVertex(int face, int vertex) {
+        // Find the index of the given face in the vertex's faces
+        int faceIndex = -1;
+        for (int i = 0; i < 3; i++) {
+            if (vertexFaces[vertex - 1][i] == face) {
+                faceIndex = i;
+                break;
+            }
+        }
+        
+        if (faceIndex == -1) {
+            throw new IllegalArgumentException("The given vertex is not on the given face");
+        }
+        
+        // Get the next face in clockwise order
+        int nextFace = vertexFaces[vertex - 1][(faceIndex + 1) % 3];
+        
+        // Find the vertex that shares both the current face and the next face
+        for (int i = 0; i < vertexCount; i++) {
+            if (i + 1 != vertex && // Skip the current vertex
+                containsFace(vertexFaces[i], face) && 
+                containsFace(vertexFaces[i], nextFace)) {
+                return i + 1; // Return the vertex index (1-based)
+            }
+        }
+        
+        // This should never happen in a valid dodecahedron
+        throw new IllegalStateException("Could not find the clockwise vertex");
+    }
+
+    public static int getClockwiseFace(int vertex, int face) {
+        // Find index of face in vertexFaces
+        int index = 0;
+        for (int i = 0; i < 3; i++) {
+            if (vertexFaces[vertex - 1][i] == face) {
+                index = i;
+                break;
+            }
+        }
+        index++; // Clockwise face's index
+        index %= 3;
+        return vertexFaces[vertex - 1][index];
     }
 
     private static int getOpposingVertex(int vertex, int edge) {
