@@ -10,3 +10,4 @@
 *.gap.gz
 *.gap.states
 *.txt
+cache.*
