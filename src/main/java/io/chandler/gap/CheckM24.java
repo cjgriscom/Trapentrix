@@ -1,6 +1,8 @@
 package io.chandler.gap;
 
 import io.chandler.gap.GroupExplorer.MemorySettings;
+import io.chandler.gap.cache.M24StateCache;
+import io.chandler.gap.cache.ParityStateCache;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -9,7 +11,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class CheckM24 {
-	public static void mainX(String[] args) {
+	public static void main(String[] args) {
 		// [(2,16,3)(8,22,9)(14,12,13)(18,20,17)(21,6,19)(24,15,23)]
 		// [(8,22,9)(19,18,20)(1,2,3)(4,5,6)(10,11,12)(13,14,15)]
 		// [(5,19,6)(8,22,9)(1,2,3)(10,11,12)(13,14,15)(16,17,18)]
@@ -44,7 +46,7 @@ public class CheckM24 {
 	}
 
 
-	public static void main(String[] args) {
+	public static void mainX(String[] args) {
 
 		int[][] genCycles = GroupExplorer.parseOperations("(2,16,3)(4,1,5)(13,17,15)(20,18,19)(23,21,22)(9,8,7)").get(0);
 		checkSymmetricalCopies(genCycles);

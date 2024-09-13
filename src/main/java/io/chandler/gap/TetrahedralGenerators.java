@@ -11,6 +11,8 @@ import java.util.List;
 
 import io.chandler.gap.GroupExplorer.Generator;
 import io.chandler.gap.GroupExplorer.MemorySettings;
+import io.chandler.gap.cache.M12StateCache;
+import io.chandler.gap.cache.ParityStateCache;
 
 import static io.chandler.gap.IcosahedralGenerators.dodecahedronFaceAboutVertex_Shallow;
 

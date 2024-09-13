@@ -17,6 +17,8 @@ import java.util.Set;
 import java.util.function.BiConsumer;
 
 import io.chandler.gap.GroupExplorer.MemorySettings;
+import io.chandler.gap.cache.M24StateCache;
+import io.chandler.gap.cache.State;
 import net.jpountz.lz4.LZ4BlockInputStream;
 import net.jpountz.lz4.LZ4BlockOutputStream;
 

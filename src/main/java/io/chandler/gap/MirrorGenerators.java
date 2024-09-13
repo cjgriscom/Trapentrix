@@ -13,6 +13,8 @@ import java.util.TreeMap;
 
 import io.chandler.gap.GroupExplorer.Generator;
 import io.chandler.gap.GroupExplorer.MemorySettings;
+import io.chandler.gap.cache.M23StateCache;
+import io.chandler.gap.cache.ParityStateCache;
 
 public class MirrorGenerators {
 

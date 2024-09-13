@@ -1434,6 +1434,12 @@ public class IcosahedralGenerators {
         System.out.println("Subset: 1/" + ((double)nPermutations / gap.order()));
         System.out.println("Iterations: " + iterations);
 
+        printCycleDescriptions(cycleDescriptions);
+
+    }
+
+    public static void printCycleDescriptions(HashMap<String, Integer> cycleDescriptions) {
+
 
         // Print sorted cycle descriptions
         System.out.println("Cycle structure frequencies:");

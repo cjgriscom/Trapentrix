@@ -8,6 +8,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -16,17 +17,20 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+import io.chandler.gap.cache.State;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 
 public class GroupExplorer implements AbstractGroupProperties {
-    
+
     private final Set<State> stateMap;
-    private final Set<State> stateMapIncomplete = new HashSet<State>();
+    private Set<State> stateMapIncomplete;
+    private Set<State> stateMapTmp;
 
     private int[] elements;
     private List<int[][]> parsedOperations;
     public int nElements;
     public final MemorySettings mem;
+    public final boolean multithread;
 
     public static class Generator {
         byte[][][] generator;
@@ -96,12 +100,18 @@ public class GroupExplorer implements AbstractGroupProperties {
         this(cycleNotation, mem, new ObjectOpenHashSet<State>());
     }
     public GroupExplorer(String cycleNotation, MemorySettings mem, Set<State> stateMap) {
+        this(cycleNotation, mem, stateMap,  new ObjectOpenHashSet<State>(), new ObjectOpenHashSet<State>(), true);
+    }
+    public GroupExplorer(String cycleNotation, MemorySettings mem, Set<State> stateMap, Set<State> stateMapIncomplete, Set<State> stateMapTmp, boolean multithread) {
         for (String s : cycleNotation.split("\\(|\\)|,|\\[|\\]")) {
             if (!s.trim().isEmpty()) nElements = Math.max(nElements, Integer.parseInt(s.trim()));
         }
 
+        this.multithread = multithread;
         this.mem = mem;
         this.stateMap = stateMap;
+        this.stateMapIncomplete = stateMapIncomplete;
+        this.stateMapTmp = stateMapTmp;
         elements = initializeElements(nElements);
         parsedOperations = parseOperations(cycleNotation);
     }
@@ -242,50 +252,64 @@ public class GroupExplorer implements AbstractGroupProperties {
         lastSize = size;
         iteration++;
 
-        long sizeInit = stateMap.size() + stateMapIncomplete.size();
+        long sizeInit = size;
 
         Set<State> incompleteAdditions;
         List<int[]> peekList;
-        Stream<State> stream;
-        Set<State> transferList;
+        boolean parallelStream;
 
         // Parallelize
-        if (sizeInit > 10000) {
-            incompleteAdditions = ConcurrentHashMap.newKeySet();
+        if (multithread && sizeInit > 10000) {
+            incompleteAdditions = Collections.synchronizedSet(stateMapTmp);
             peekList = Collections.synchronizedList(new ArrayList<int[]>());
-            stream = stateMapIncomplete.parallelStream();
-            transferList = ConcurrentHashMap.newKeySet();
+            parallelStream = true;
         } else {
-            incompleteAdditions = new HashSet<State>();
+            incompleteAdditions = stateMapTmp;
             peekList = new ArrayList<int[]>();
-            stream = stateMapIncomplete.stream();
-            transferList = new HashSet<State>();
+            parallelStream = false;
         }
 
-        stream.forEach((state) -> {
-            int[] currentState = state.state();
+        Iterator<State> iterator = stateMapIncomplete.iterator();
 
-            boolean added = false;
-            for (int[][] operation : parsedOperations) {
-                int[] newState = applyOperation(currentState, operation);
-                State s = State.of(newState, nElements, mem);
 
-                if (!stateMapIncomplete.contains(s) && !stateMap.contains(s)) {
-                    boolean addedFresh = incompleteAdditions.add(s);
-                    if (addedFresh && peekStateAndDepth != null) peekList.add(newState);
-                    added = true;
+        // LMDB cache iterator is not multithreaded so let's create batches
+        //     on main thread and process them in parallel
+        while (iterator.hasNext()) {
+            ArrayList<State> batch = new ArrayList<>();
+            while (iterator.hasNext() && batch.size() < 10000) {
+                batch.add(iterator.next());
+            }
+
+            Stream<State> stream;
+            if (parallelStream) {
+                stream = batch.parallelStream();
+            } else {
+                stream = batch.stream();
+            }
+
+            stream.forEach((state) -> {
+                int[] currentState = state.state();
+
+                for (int[][] operation : parsedOperations) {
+                    int[] newState = applyOperation(currentState, operation);
+                    State s = State.of(newState, nElements, mem);
+
+                    if (!stateMapIncomplete.contains(s) && !stateMap.contains(s)) {
+                        boolean addedFresh = incompleteAdditions.add(s);
+                        if (addedFresh && peekStateAndDepth != null) peekList.add(newState);
+                    }
                 }
-            }
-            if (!added) {
-                transferList.add(state);
-            }
-        });
+            });
+        }
+
         if (peekList.size() > 0) {
             peekStateAndDepth.accept(peekList, iteration);
         }
-        stateMap.addAll(transferList);
-        stateMapIncomplete.removeAll(transferList);
-        stateMapIncomplete.addAll(incompleteAdditions);
+        stateMap.addAll(stateMapIncomplete);
+        Set<State> tmp = stateMapIncomplete;
+        stateMapIncomplete = stateMapTmp;
+        stateMapTmp = tmp;
+        stateMapTmp.clear();
         
         long sizeEnd = stateMap.size() + stateMapIncomplete.size();
         if (sizeInit == sizeEnd) {
@@ -309,7 +333,7 @@ public class GroupExplorer implements AbstractGroupProperties {
             return ret;
         }
     }
-
+    
     public static int[][][] parseOperationsArr(String groupNotation) {
         List<int[][]> operations = parseOperations(groupNotation);
         return operations.toArray(new int[operations.size()][][]);

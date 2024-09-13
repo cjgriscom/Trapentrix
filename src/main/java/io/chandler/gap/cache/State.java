@@ -1,4 +1,4 @@
-package io.chandler.gap;
+package io.chandler.gap.cache;
 
 import java.math.BigInteger;
 import java.util.Arrays;
@@ -35,7 +35,13 @@ public abstract class State {
             this.factorialRepresentation = encodeFactorial(state).toByteArray();
         }
 
-		// s
+		public static int[] stateFromBytes(byte[] bytes, int maxElement) {
+			return decodeFactorial(new BigInteger(bytes), maxElement);
+		}
+
+		public byte[] bytes() {
+			return factorialRepresentation;
+		}
 
 		private BigInteger encodeFactorial(int[] state) {
 			BigInteger result = BigInteger.ZERO;
@@ -55,7 +61,7 @@ public abstract class State {
 		}
 		private static final ThreadLocal<BigInteger[]> FACTORIAL_CACHE = ThreadLocal.withInitial(() -> new BigInteger[1000]);
 
-		private BigInteger factorial(int n) {
+		private static BigInteger factorial(int n) {
 			if (n < 0) {
 				throw new IllegalArgumentException("Factorial is not defined for negative numbers");
 			}
@@ -69,7 +75,7 @@ public abstract class State {
 			return calculateFactorial(n);
 		}
 	
-		private BigInteger calculateFactorial(int n) {
+		private static BigInteger calculateFactorial(int n) {
 			BigInteger result = BigInteger.ONE;
 			for (int i = 2; i <= n; i++) {
 				result = result.multiply(BigInteger.valueOf(i));
@@ -82,7 +88,7 @@ public abstract class State {
 			return decodeFactorial(new BigInteger(factorialRepresentation), length);
 		}
 	
-		private int[] decodeFactorial(BigInteger encoded, int length) {
+		private static int[] decodeFactorial(BigInteger encoded, int length) {
 			int[] result = new int[length];
 			boolean[] used = new boolean[length + 1];
 			

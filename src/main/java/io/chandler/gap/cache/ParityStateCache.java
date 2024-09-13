@@ -1,4 +1,4 @@
-package io.chandler.gap;
+package io.chandler.gap.cache;
 
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 
@@ -10,6 +10,11 @@ public class ParityStateCache extends AbstractSet<State> {
     private final Set<State> map;
     private final Set<State> mapSupplied;
 
+    public ParityStateCache(Set<State> mapPrimary, Set<State> mapChecks) {
+        this.map = mapPrimary;
+        this.mapSupplied = mapChecks;
+    }
+
     public ParityStateCache(Set<State> mapSupplied) {
         this.map = new ObjectOpenHashSet<State>();
         this.mapSupplied = mapSupplied;
@@ -19,7 +24,7 @@ public class ParityStateCache extends AbstractSet<State> {
     public boolean add(State state) {
         boolean r = map.add(state);
         boolean r2 = mapSupplied.add(state);
-        if (r != r2) throw new StateRejectedException();
+        if (r != r2) throw new StateRejectedException("Added to primary: " + r + " and secondary: " + r2);
         return r;
     }
 
@@ -33,18 +38,39 @@ public class ParityStateCache extends AbstractSet<State> {
 
     @Override
     public int size() {
-        return map.size();
+        int r = map.size();
+        int r2 = mapSupplied.size();
+        if (r != r2) throw new StateRejectedException();
+        return r;
     }
 
-	@Override
+    @Override
+    public void clear() {
+        map.clear();
+        mapSupplied.clear();
+        if (map.size() != mapSupplied.size()) throw new StateRejectedException();
+    }
+
+    @Override
+    public boolean remove(Object o) {
+        boolean r = map.remove(o);
+        boolean r2 = mapSupplied.remove(o);
+        if (r != r2) throw new StateRejectedException();
+        return r;
+    }
+
+    @Override
     public Iterator<State> iterator() {
         return map.iterator();
     }
 
-
     public static class StateRejectedException extends RuntimeException {
         public StateRejectedException() {
             super();
+        }
+
+        public StateRejectedException(String message) {
+            super(message);
         }
     }
 }
