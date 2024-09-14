@@ -55,6 +55,11 @@ public class PentagonalHexecontahedron {
 	}
 
 	public static void main(String[] args) {
+
+		for (int i = 1; i <= 20; i++) {
+			System.out.println("V" + i + " F" + Arrays.toString(Dodecahedron.vertexFaces[i-1]));
+		}
+
 		for (int i = 1; i <= 60; i++) {
 			System.out.println(i + ": V" + phfaceToDodecahedronFaceVertex[i-1][1] + " F" + phfaceToDodecahedronFaceVertex[i-1][0]);
 		}

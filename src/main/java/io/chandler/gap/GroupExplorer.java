@@ -7,12 +7,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
@@ -48,6 +46,17 @@ public class GroupExplorer implements AbstractGroupProperties {
             }
         }
 
+        public static Generator combine(Generator a, Generator b) {
+            int[][][] result = new int[a.generator.length + b.generator.length][][];
+            for (int i = 0; i < a.generator.length; i++) {
+                result[i] = a.generator()[i];
+            }
+            for (int i = 0; i < b.generator.length; i++) {
+                result[a.generator.length + i] = b.generator()[i];
+            }
+            return new Generator(result);
+        }
+        
         public int[][][] generator() {
             int[][][] result = new int[generator.length][][];
             for (int i = 0; i < generator.length; i++) {
@@ -570,7 +579,13 @@ public class GroupExplorer implements AbstractGroupProperties {
     // Helper method to convert int[][][] to String (for debugging or display purposes)
     public static String generatorsToString(int[][][] generators) {
         StringBuilder result = new StringBuilder("[");
+        boolean first = true;
         for (int i = 0; i < generators.length; i++) {
+            if (generators[i].length == 0) continue; // Identity
+            if (!first) {
+                result.append(",");
+            }
+            first = false;
             for (int[] cycle : generators[i]) {
                 result.append("(");
                 for (int j = 0; j < cycle.length; j++) {
@@ -580,9 +595,6 @@ public class GroupExplorer implements AbstractGroupProperties {
                     }
                 }
                 result.append(")");
-            }
-            if (i < generators.length - 1) {
-                result.append(",");
             }
         }
         result.append("]");
