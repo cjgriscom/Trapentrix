@@ -18,6 +18,7 @@ import io.chandler.gap.VertexColorSearch.ColorMapping;
 import io.chandler.gap.cache.LongIntStateCache;
 import io.chandler.gap.cache.ParityStateCache;
 import io.chandler.gap.cache.State;
+import io.chandler.gap.util.TimeEstimator;
 
 public class PHGenerators {
 
@@ -57,11 +58,12 @@ public class PHGenerators {
         get3D_180Symm();       // Order 3 (30p 2-cycles)
         getTetrahedralSymm();  // Order 12 (20p 3-cycles)
 
+        int foundResults = 0;
         VertexColorSearch vcs = new VertexColorSearch(getDodecahedralSymm(), 60, PentagonalHexecontahedron::getFacesFromVertex, PentagonalHexecontahedron::getMatchingVertexFromFaces);
 
         for (ColorMapping c : vcs.searchForGenerators()) {
             int[] axes = c.axesSubgroup.vertex1Positions;
-            if (axes.length >= 10) {
+            if (axes.length == 12) {
                 int colors = (int) Arrays.stream(c.getVertexToColorMap()).distinct().count();
                 
                 // Pick the two large axis mappings
@@ -76,50 +78,118 @@ public class PHGenerators {
                 
                 // Select partitions of vertices
 
-                List<int[]> combinations = Permu.generateCombinations(vertices.length, vertices.length / 2);
+                List<int[]> combinations = Permu.generateCombinations(vertices.length, vertices.length / 3);
+                Collections.shuffle(combinations);
 
-                Generator gUnified = Generator.combine(
-                    new Generator(new int[][][] {cyclesUnified}),
-                    new Generator(getDodecahedralSymm())
-                );
-
-                System.out.println(" --- 1 unified group and " + combinations.size() + " evenly split groups --- ");
-                System.out.println("0: Generating unified group with " + colors + " colors");
-                checkGenerator(false, gUnified);
-
+                TimeEstimator timeEst = new TimeEstimator(combinations.size() * (combinations.size()));
+                
+                System.out.println(" --- 1 unified group and " + combinations.size() * (combinations.size() - 1) / 2 + " triple split groups --- ");
+                
                 int combinationIndex = 0;
-                for (int[] combination : combinations) {
-                    combinationIndex++;
-                    HashSet<Integer> verticesB = new HashSet<>();
-                    for (int v : vertices) verticesB.add(v);
-                    int[][] cyclesSplit = new int[axes.length][];
-                    for (int i = 0; i < combination.length; i++) {
-                        int vertex = axes[combination[i]];
-                        verticesB.remove(vertex);
-                        cyclesSplit[i] = PentagonalHexecontahedron.getFacesFromVertex(vertex);
+                for (int[] partition0Indices : combinations) {
+                    // Create partition0 with actual vertex values
+                    int[] partition0 = new int[vertices.length / 3];
+                    for (int i = 0; i < partition0Indices.length; i++) {
+                        partition0[i] = vertices[partition0Indices[i]];
                     }
-                    int i = 0;
-                    for (int vertex : verticesB) {
-                        cyclesSplit[combination.length + i] = CycleInverter.invertArray(PentagonalHexecontahedron.getFacesFromVertex(vertex));
-                        i++;
+                
+                    // Create a set of remaining vertices
+                    Set<Integer> remainingVertices = new HashSet<>();
+                    for (int v : vertices) {
+                        remainingVertices.add(v);
                     }
-
-                    //System.out.println(cyclesSplit.length);
+                    for (int v : partition0) {
+                        remainingVertices.remove(v);
+                    }
+                
+                    // Convert remaining vertices to array
+                    int[] remainingArray = remainingVertices.stream().mapToInt(Integer::intValue).toArray();
+                
+                    // Generate combinations for the second partition
+                    List<int[]> combinations2 = Permu.generateCombinations(remainingArray.length, vertices.length / 3);
+                    Collections.shuffle(combinations2);
                     
-                    Generator gSplit = Generator.combine(
-                        new Generator(new int[][][]{cyclesSplit}),
-                        new Generator(getDodecahedralSymm())
-                    );
+                    for (int[] partition1Indices : combinations2) {
+                        int[] partition1 = new int[vertices.length / 3];
+                        int[] partition2 = new int[vertices.length / 3];
+                        
+                        for (int i = 0; i < partition1Indices.length; i++) {
+                            partition1[i] = remainingArray[partition1Indices[i]];
+                        }
+                        
+                        int partition2Index = 0;
+                        for (int i = 0; i < remainingArray.length; i++) {
+                            if (Arrays.binarySearch(partition1Indices, i) < 0) {
+                                partition2[partition2Index++] = remainingArray[i];
+                            }
+                        }
+                
+                        if (combinationIndex % 10 == 0) {
+                            timeEst.checkProgressEstimate(combinationIndex, foundResults);
+                        }
+                        combinationIndex++;
+                
+                        // Here you can use partition0, partition1, and partition2
+                        // For example:
+                        //System.out.println("Combination " + combinationIndex + ":");
 
-                    System.out.println((combinationIndex) + " / " + combinations.size() + ": Generating split group with " + colors + " colors");
-                    checkGenerator(false, gSplit);
+                        //System.out.println("Axes: " + Arrays.toString(axes));
+                        //System.out.println("Partition 0: " + Arrays.toString(partition0));
+                        //System.out.println("Partition 1: " + Arrays.toString(partition1));
+                        //System.out.println("Partition 2: " + Arrays.toString(partition2));
+                
+                        int[][] cyclesSplit = new int[axes.length / 3 * 2][];
+                        int[][] cyclesSplit2 = new int[axes.length][];
+
+                        for (int i = 0; i < partition0.length; i++) {
+                            int vertex = partition0[i];
+                            cyclesSplit[i] = PentagonalHexecontahedron.getFacesFromVertex(vertex);
+                            cyclesSplit2[i] = cyclesSplit[i];
+                        }
+                        int i = 0;
+                        for (int vertex : partition1) {
+                            cyclesSplit[partition0.length + i] = CycleInverter.invertArray(PentagonalHexecontahedron.getFacesFromVertex(vertex));
+                            cyclesSplit2[partition0.length + i] = CycleInverter.invertArray(PentagonalHexecontahedron.getFacesFromVertex(vertex));
+                            i++;
+                        }
+
+                        for (int vertex : partition2) {
+                            cyclesSplit2[partition0.length + i] = PentagonalHexecontahedron.getFacesFromVertex(vertex);
+                            i++;
+                        }
+
+                        // Partition 2 gets discarded
+
+                       //PentagonalHexecontahedron.printVertexGeneratorNotations(new int[][][] {cyclesSplit});
+
+                        //System.out.println(cyclesSplit.length);
+                        
+                        Generator gSplit = Generator.combine(
+                            new Generator(new int[][][]{cyclesSplit}),
+                            new Generator(getDodecahedralSymm())
+                        );
+
+                        Generator gSplit2 = Generator.combine(
+                            new Generator(new int[][][]{cyclesSplit2}),
+                            new Generator(getDodecahedralSymm())
+                        );
+
+                        //System.out.println((combinationIndex) + " / " + combinations.size()*combinations.size() + ": Generating split group with " + colors + " colors");
+                        boolean found = checkGenerator(false, gSplit);
+                        boolean found2 = checkGenerator(false, gSplit2);
+                        if (found || found2) {
+                            foundResults++;
+                        }
+                    }
                 }
+
+
             }
         }
 	}
 
-    private static void checkGenerator(boolean debug, Generator g) {
-        for (int transitivity = 14; transitivity <= 19; transitivity++) {
+    private static boolean checkGenerator(boolean debug, Generator g) {
+        for (int transitivity = 21; transitivity <= 21; transitivity++) {
             if (debug) System.out.println("Checking transitivity " + transitivity);
             Set<State> stateCache = new LongIntStateCache(transitivity,60);
             ArrayList<String> results = new ArrayList<>();
@@ -142,9 +212,10 @@ public class PHGenerators {
                     System.out.println(genString);
                 }
 
-                break;
+                return true;
             }
         }
+        return false;
     }
 
     private static List<State> findCycleInStateList(int[] ref, Set<State> states) {
@@ -344,12 +415,12 @@ public class PHGenerators {
         String genString = GroupExplorer.generatorsToString(g.generator());
         GroupExplorer candidate = new GroupExplorer(
             genString,
-            MemorySettings.COMPACT, cache);
+            MemorySettings.FASTEST, cache);
             
 
         ArrayList<String> depthPeek = new ArrayList<>();
         int startCheckingRatioIncreaseAtOrder = 313692;/// 739215;
-        int limit = 30400000/3;
+        int limit = 30400000/5;
         int[] stateCount = new int[2];
         int iters = -2;
 
