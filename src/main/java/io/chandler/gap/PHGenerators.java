@@ -5,11 +5,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 
 import io.chandler.gap.GroupExplorer.Generator;
@@ -59,6 +57,7 @@ public class PHGenerators {
         getTetrahedralSymm();  // Order 12 (20p 3-cycles)
 
         VertexColorSearch vcs = new VertexColorSearch(getDodecahedralSymm(), 60, PentagonalHexecontahedron::getFacesFromVertex, PentagonalHexecontahedron::getMatchingVertexFromFaces);
+        vcs.allowMissingVertices(false);
 
         // Manually construct 10x6 that I know is correct
         int[] s0 = findCycleInStateList(new int[] {18,58}, vcs.fullSymmetryStates).iterator().next().state();
@@ -72,7 +71,7 @@ public class PHGenerators {
         int[][] c3 = GroupExplorer.stateToCycles(s3);
 
         Generator colorGen = new Generator(new int[][][] {c0, c2});
-        Generator axesGen = new Generator(new int[][][] {c1, c3});
+        Generator axesGen = new Generator(getDodecahedralSymm());//new Generator(new int[][][] {c1, c3});
 
         GroupExplorer ge0 = new GroupExplorer(colorGen.toString(), MemorySettings.DEFAULT);
         ge0.exploreStates(false, null);
@@ -94,22 +93,21 @@ public class PHGenerators {
 
         ColorMapping cm = vcs.new ColorMapping(
             new SubgroupKey(ge0.order(), skColor.keySet()),
-            colorGen,
-            new SubgroupKey(ge1.order(), skAxes.keySet()),
-            axesGen);
+            colorGen);
 
         ArrayList<ColorMapping> colorMappings = new ArrayList<>();
         colorMappings.add(cm);
 
-        int[] vtc = cm.getVertexToColorMap(false, true, 60);
+        int[] vtc = cm.getVertexToColorMap();
         System.out.println(Arrays.toString(vtc));
+        System.out.println("Distinct colors: " + Arrays.stream(vtc).distinct().count());
 
-        vcs.reduceIsomorphicAndInvalidColorMappings(false, true, colorMappings);
+        vcs.reduceIsomorphicAndInvalidColorMappings(colorMappings);
 
         System.out.println(colorMappings.size());
         
         // Really not confident that this is correct, i.e. why doesn't it return a 10x6?
-        //List<ColorMapping> colorMappings = vcs.searchForGenerators();
+        vcs.searchForGenerators();
 
         //A 5 [1, 24, 18, 21, 14]
         //B 12 [1, 60, 45, 28, 3, 58, 30, 44, 59, 2, 43, 29]

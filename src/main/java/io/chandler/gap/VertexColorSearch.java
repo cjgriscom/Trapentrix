@@ -24,6 +24,10 @@ public class VertexColorSearch {
 	HashSet<State> fullSymmetryStates;
 	int symmetryOrder;
 	int nVertices;
+	Generator colorSymmGen;
+	SubgroupKey colorSymmSubgroup;
+
+	boolean allowMissingVertices = false;
 
 	public VertexColorSearch(int[][][] fullSymmetryGroup, int nVertices, Function<Integer, int[]> getFacesFromVertex, Function<int[], Integer> getMatchingVertexFromFaces) {
 		this.fullSymmetryGroup = fullSymmetryGroup;
@@ -36,6 +40,14 @@ public class VertexColorSearch {
         ge.resetElements(true);
         ge.exploreStates(false, null);
 		this.symmetryOrder = ge.order();
+
+		this.colorSymmGen = new Generator(fullSymmetryGroup);
+		this.colorSymmSubgroup = new SubgroupKey(symmetryOrder, findSymmetryCopiesOfVertex(colorSymmGen, 1, null).keySet());
+	}
+
+	public VertexColorSearch allowMissingVertices(boolean allowMissingVertices) {
+		this.allowMissingVertices = allowMissingVertices;
+		return this;
 	}
 
 	public LinkedHashMap<Integer, int[]> findSymmetryCopiesOfVertex(Generator gen, int vertex, Map<Integer, LinkedHashMap<Integer, int[]>> vertexSymmetryCache) {
@@ -71,38 +83,25 @@ public class VertexColorSearch {
         return vertexMapping;
     }
 
-
-	
     public class ColorMapping {
         SubgroupKey axesSubgroup;
         Generator axesGen;
 
-        SubgroupKey colorSymmSubgroup;
-        Generator colorSymmGen;
-
-        public ColorMapping(SubgroupKey axesSubgroup, Generator axesGen, SubgroupKey colorSymmSubgroup, Generator colorSymmGen) {
+        public ColorMapping(SubgroupKey axesSubgroup, Generator axesGen) {
             this.axesSubgroup = axesSubgroup;
             this.axesGen = axesGen;
-            this.colorSymmSubgroup = colorSymmSubgroup;
-            this.colorSymmGen = colorSymmGen;
-        }
-
-        public Generator getCombinedGenerator() {
-            return Generator.combine(axesGen, colorSymmGen);
         }
 
         @Override
         public int hashCode() {
-            return axesSubgroup.hashCode() * 31 + colorSymmSubgroup.hashCode();
+            return axesSubgroup.hashCode() * 31;
         }
         @Override
         public boolean equals(Object obj) {
-            return axesSubgroup.equals(((ColorMapping)obj).axesSubgroup) && colorSymmSubgroup.equals(((ColorMapping)obj).colorSymmSubgroup);
+            return axesSubgroup.equals(((ColorMapping)obj).axesSubgroup);
         }
 
-        
-
-		public int[] getVertexToColorMap(boolean allowMissingVertices, boolean allowCongruency, int nVertices) {
+		public int[] getVertexToColorMap() {
             int[] vertexToColor = new int[nVertices];
 
 			HashMap<Integer, HashSet<Integer>> congruentColors = new HashMap<>();
@@ -115,11 +114,7 @@ public class VertexColorSearch {
 						vertexToColor[axis - 1] = color;
 						congruentColors.put(color, new HashSet<>(color));
 					} else if (vertexToColor[axis - 1] != color) {
-						if (allowCongruency) {
-							congruentColors.get(vertexToColor[axis - 1]).add(color);
-						} else {
-							return null;
-						}
+						congruentColors.get(vertexToColor[axis - 1]).add(color);
 					}
                 }
                 color++;
@@ -138,8 +133,19 @@ public class VertexColorSearch {
 				return null;
 			}
 
-
-            return vertexToColor;
+			// Renumber
+			int[] vertexToColor2 = new int[vertexToColor.length];
+			HashMap<Integer, Integer> colorMap = new HashMap<>();
+			int nextColor = 1;
+			for (int i = 0; i < vertexToColor.length; i++) {
+				int originalColor = vertexToColor[i];
+				if (!colorMap.containsKey(originalColor)) {
+					colorMap.put(originalColor, nextColor++);
+				}
+				vertexToColor2[i] = colorMap.get(originalColor);
+			}
+			return vertexToColor2;
+			
 		}
     }
 
@@ -152,73 +158,54 @@ public class VertexColorSearch {
         ArrayList<ColorMapping> colorMappings = new ArrayList<>();
 
         HashMap<SubgroupKey, int[][][]> subgroups = findSubgroups(fullSymmetryGroup);
-        
-        // Make sure they all generate the same group
-        Map<SubgroupKeyCollection, Generator[]> pairs = findUniqueSubgroupPairs(subgroups);
-        for (Entry<SubgroupKeyCollection, Generator[]> e : pairs.entrySet()) {
-            int[][][] gArr1 = e.getValue()[0].generator();
-            int[][][] gArr2 = e.getValue()[1].generator();
+        for (Entry<SubgroupKey, int[][][]> e : subgroups.entrySet()) {
+            int[][][] gArr1 = e.getValue();
             {
                 // Re-order the symmetries so that the first has non-colliding cycles
                 // If both have colliding cycles, exclude from results
 
                 boolean gArr1HasCollidingCycles = hasCollidingCycles(gArr1);
-                boolean gArr2HasCollidingCycles = hasCollidingCycles(gArr2);
 
-                if (gArr1HasCollidingCycles && gArr2HasCollidingCycles) {
+                if (gArr1HasCollidingCycles) {
                     //System.out.print("Reject ");
                     rejects++;
                     continue;
-                } else if (!gArr1HasCollidingCycles && !gArr2HasCollidingCycles) {
-                    // Add both to the list
-                    ColorMapping cm1 = new ColorMapping(e.getKey().keys[0], e.getValue()[0], e.getKey().keys[1], e.getValue()[1]);
-                    ColorMapping cm2 = new ColorMapping(e.getKey().keys[1], e.getValue()[1], e.getKey().keys[0], e.getValue()[0]);
+                } else {
+                    ColorMapping cm1 = new ColorMapping(e.getKey(), new Generator(e.getValue()));
                     colorMappings.add(cm1);
-                    colorMappings.add(cm2);
-                } else if (!gArr1HasCollidingCycles) {
-                    ColorMapping cm1 = new ColorMapping(e.getKey().keys[0], e.getValue()[0], e.getKey().keys[1], e.getValue()[1]);
-                    colorMappings.add(cm1);
-                } else if (!gArr2HasCollidingCycles) {
-                    ColorMapping cm2 = new ColorMapping(e.getKey().keys[1], e.getValue()[1], e.getKey().keys[0], e.getValue()[0]);
-                    colorMappings.add(cm2);
                 }
 
             }
         }
 
         System.out.println("Rejects: " + rejects);
-        System.out.println("Accepts: " + (pairs.size() - rejects));
         System.out.println("Color mappings: " + colorMappings.size());
 
-        reduceIsomorphicAndInvalidColorMappings(false, true, colorMappings);
+        reduceIsomorphicAndInvalidColorMappings(colorMappings);
         System.out.println("Unique color mappings: " + colorMappings.size());
 
         for (ColorMapping cm : colorMappings) {
+			System.out.print("Colors: " + Arrays.stream(cm.getVertexToColorMap()).distinct().count());
 
-            int[][][] genCombineArr = cm.getCombinedGenerator().generator();
+            int[][][] genCombineArr = cm.axesGen.generator();
             int[] symmetries = new int[genCombineArr.length];
-            StringBuilder sb = new StringBuilder("Symmetry : ");
+            StringBuilder sb = new StringBuilder(", Symmetry : ");
             for (int i = 0; i < genCombineArr.length; i++) {
                 Set<Integer> aA = findSymmetryCopiesOfVertex(new Generator(new int[][][] {genCombineArr[i]}), 1, null).keySet();
                 int a = aA.size();
                 symmetries[i] = a;
                 sb.append(a).append(" ");
             }
-            System.out.print(sb + ", cycle lengths ");
-            for (int i = 0; i < 2; i++) {
-                int[][][] gen = (i==0 ? cm.axesGen : cm.colorSymmGen).generator();
-                for (int[][] cycles : gen) {
-                    System.out.print(cycles[0].length + " ");
-                }
-                System.out.print(" , ");
+            System.out.print(sb + ", cycle lengths");
+			int[][][] gen = cm.axesGen.generator();
+			for (int[][] cycles : gen) {
+				System.out.print(" " + cycles[0].length);
+			}
+			System.out.print(", ");
 
-            }
             System.out.println();
-            for (int i = 0; i < 2; i++) {
-                SubgroupKey k = i == 0 ? cm.axesSubgroup : cm.colorSymmSubgroup;
-                char c = i == 0 ? 'A' : 'B';
-                System.out.println(c + " " + k.order + " " + Arrays.toString(k.vertex1Positions));
-            }
+			SubgroupKey k = cm.axesSubgroup;
+			System.out.println(k.order + " " + Arrays.toString(k.vertex1Positions));
                     
         }
 
@@ -236,13 +223,13 @@ public class VertexColorSearch {
 		return colors.size();
 	}
 
-    public void reduceIsomorphicAndInvalidColorMappings(boolean allowMissingVertices, boolean allowCongruency, ArrayList<ColorMapping> colorMappings) {
+    public void reduceIsomorphicAndInvalidColorMappings(ArrayList<ColorMapping> colorMappings) {
         HashSet<int[]> colorMappingCache = new HashSet<>();
         Iterator<ColorMapping> iter = colorMappings.iterator();
         while (iter.hasNext()) {
             ColorMapping cm = iter.next();
 
-            int[] vertexToColor = cm.getVertexToColorMap(allowMissingVertices, allowCongruency, nVertices);
+            int[] vertexToColor = cm.getVertexToColorMap();
 
             if (vertexToColor == null) {
                 iter.remove();
@@ -324,61 +311,6 @@ public class VertexColorSearch {
             }
         }
         return false;
-    }
-
-    private static class SubgroupKeyCollection {
-        SubgroupKey[] keys;
-        SubgroupKeyCollection(SubgroupKey[] keys) { this.keys = keys; }
-        @Override public int hashCode() { return Arrays.hashCode(keys); }
-        @Override public boolean equals(Object obj) { return Arrays.equals(keys, ((SubgroupKeyCollection)obj).keys); }
-    }
-
-    private static void insertGeneratorFilterDuplicates(Map<SubgroupKeyCollection, Generator[]> set, SubgroupKey[] subgroupKeys, Generator[] g) {
-        for (int[] permu : Permu.generatePermutations(subgroupKeys.length)) {
-            SubgroupKey[] subgroupKeys2 = new SubgroupKey[subgroupKeys.length];
-            for (int i = 0; i < subgroupKeys2.length; i++) {
-                subgroupKeys2[i] = subgroupKeys[permu[i]-1];
-            }
-            SubgroupKeyCollection keyCollection = new SubgroupKeyCollection(subgroupKeys2);
-            if (set.containsKey(keyCollection)) {
-                return;
-            }
-        }
-        set.put(new SubgroupKeyCollection(subgroupKeys), g);
-        if (set.size() % 1000 == 0) {
-            System.out.println("Found " + set.size() + " unique generators");
-            
-        }
-    }
-
-    private Map<SubgroupKeyCollection,Generator[]> findUniqueSubgroupPairs(HashMap<SubgroupKey, int[][][]> subgroups) {
-
-        int subgroupPairsTotal = 0;
-        HashMap<SubgroupKeyCollection, Generator[]> subgroupPairsIsomorphic = new HashMap<>();
-
-        // Find all pairs whose generators combine to equal symmetry order
-        for (Entry<SubgroupKey, int[][][]> e : subgroups.entrySet()) {
-            for (Entry<SubgroupKey, int[][][]> e2 : subgroups.entrySet()) {
-                Generator g1 = new Generator(e.getValue());
-                Generator g2 = new Generator(e2.getValue());
-
-				Generator gCombined = Generator.combine(g1, g2);
-				GroupExplorer geCombined = new GroupExplorer(GroupExplorer.generatorsToString(gCombined.generator()), MemorySettings.DEFAULT);
-				geCombined.exploreStates(false, null);
-				
-                if (geCombined.order() == symmetryOrder) {
-                    subgroupPairsTotal++;
-                    insertGeneratorFilterDuplicates(subgroupPairsIsomorphic, 
-                        new SubgroupKey[]{e.getKey(), e2.getKey()},
-                        new Generator[]{g1, g2});
-                } 
-            }
-        }
-
-        System.out.println("Total subgroup pairs: " + subgroupPairsTotal);
-        System.out.println("Unique subgroup pairs: " + subgroupPairsIsomorphic.size());
-
-        return subgroupPairsIsomorphic;
     }
 
     public static class SubgroupKey {
