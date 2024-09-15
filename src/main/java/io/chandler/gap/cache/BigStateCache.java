@@ -1,14 +1,13 @@
 package io.chandler.gap.cache;
 
-import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
-
 import java.math.BigInteger;
 import java.util.AbstractSet;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Iterator;
 
 public class BigStateCache extends AbstractSet<State> {
-    private final ObjectOpenHashSet<BA> map;
+    private final HashSet<BA> map;
 
 
 
@@ -16,7 +15,7 @@ public class BigStateCache extends AbstractSet<State> {
     final int nElements;
 
     public BigStateCache(long elementsToStore, int nElements) {
-        this.map = new ObjectOpenHashSet<>();
+        this.map = new HashSet<>();
         this.elementsToStore = elementsToStore;
         this.nElements = nElements;
     }
