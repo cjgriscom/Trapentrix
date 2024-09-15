@@ -2,15 +2,12 @@ package io.chandler.gap;
 
 import static io.chandler.gap.IcosahedralGenerators.printCycleDescriptions;
 
-import java.io.File;
 import java.io.PrintStream;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -18,11 +15,13 @@ import java.util.Map;
 import java.util.Scanner;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 import io.chandler.gap.GroupExplorer.Generator;
 import io.chandler.gap.GroupExplorer.MemorySettings;
+import io.chandler.gap.VertexColorSearch.ColorMapping;
 import io.chandler.gap.cache.InteractiveCachePair;
-import io.chandler.gap.cache.LMDBCache;
+import io.chandler.gap.cache.LongIntStateCache;
 import io.chandler.gap.cache.LongStateCache;
 import io.chandler.gap.cache.M24StateCache;
 import io.chandler.gap.cache.ParityStateCache;
@@ -72,19 +71,115 @@ public class CubicGenerators {
 	public static void main(String[] args) throws Exception {
         PentagonalIcositrahedron.printVertexGeneratorNotations(new Generator(GroupExplorer.parseOperationsArr("(23,15,24)(14,12,13)(11,10,7)(22,8,9)(20,17,18)(2,16,3)(5,1,4)(6,19,21)")).generator());
         
-        // Predictions
-
-        int[][][] piCubicSymm = GroupExplorer.parseOperationsArr(CubicGenerators.cubicPISymmetries_2);
-        VertexColorSearch vcs = new VertexColorSearch(piCubicSymm, 24, PentagonalIcositrahedron::getFacesFromVertex, PentagonalIcositrahedron::getMatchingVertexFromFaces);
-
-        vcs.searchForGenerators();
-
-
         //findCube_8p();
         //checkCube_8p();
 
-
+        vertexColorSearchPI();
 	}
+
+    private static void vertexColorSearchPI() {
+        int[][][] piCubicSymm = GroupExplorer.parseOperationsArr(CubicGenerators.cubicPISymmetries_2);
+
+        VertexColorSearch vcs = new VertexColorSearch(piCubicSymm, 24, PentagonalIcositrahedron::getFacesFromVertex, PentagonalIcositrahedron::getMatchingVertexFromFaces);
+
+        for (ColorMapping c : vcs.searchForGenerators()) {
+            int[] axes = c.axesSubgroup.vertex1Positions;
+            if (axes.length >= 6) {
+                int colors = (int) Arrays.stream(c.getVertexToColorMap()).distinct().count();
+                
+                // Pick the two large axis mappings
+                System.out.println(c.axesSubgroup.order + " " + Arrays.toString(c.axesSubgroup.vertex1Positions));
+
+                int[] vertices = c.axesSubgroup.vertex1Positions;
+
+                int[][] cyclesUnified = new int[axes.length][];
+                for (int i = 0; i < vertices.length; i++) {
+                    cyclesUnified[i] = PentagonalIcositrahedron.getFacesFromVertex(vertices[i]);
+                }
+                
+                // Select partitions of vertices
+
+                List<int[]> combinations = Permu.generateCombinations(vertices.length, vertices.length / 2);
+
+                Generator gUnified = Generator.combine(
+                    new Generator(new int[][][] {cyclesUnified}),
+                    new Generator(piCubicSymm)
+                );
+                System.out.println("Generating unified group with " + colors + " colors");
+                checkGenerator(false, gUnified);
+
+                System.out.println("Generating split groups : " + combinations.size() + " combinations");
+
+                for (int[] combination : combinations) {
+                    HashSet<Integer> verticesB = new HashSet<>();
+                    for (int v : vertices) verticesB.add(v);
+                    int[][] cyclesSplit = new int[axes.length][];
+                    for (int i = 0; i < combination.length; i++) {
+                        int vertex = axes[combination[i]];
+                        verticesB.remove(vertex);
+                        cyclesSplit[i] = PentagonalIcositrahedron.getFacesFromVertex(vertex);
+                    }
+                    int i = 0;
+                    for (int vertex : verticesB) {
+                        cyclesSplit[combination.length + i] = CycleInverter.invertArray(PentagonalIcositrahedron.getFacesFromVertex(vertex));
+                        i++;
+                    }
+
+                    //System.out.println(cyclesSplit.length);
+                    
+                    Generator gSplit = Generator.combine(
+                        new Generator(new int[][][]{cyclesSplit}),
+                        new Generator(piCubicSymm)
+                    );
+
+                    System.out.println("Generating split group with " + colors + " colors");
+                    checkGenerator(false, gSplit);
+                }
+            }
+        }
+    }
+
+    private static void printGeneratorResults(Generator g, Set<State> stateCache) {
+        String genString = GroupExplorer.generatorsToString(g.generator());
+        System.out.println(genString);
+        GroupExplorer candidate = new GroupExplorer(
+            genString,
+            MemorySettings.COMPACT, stateCache);
+
+        IcosahedralGenerators.exploreGroup(candidate, null);
+            
+    }
+
+
+    private static void checkGenerator(boolean debug, Generator g) {
+        for (int transitivity = 7; transitivity <= 8; transitivity++) {
+
+            if (debug) System.out.println("Checking transitivity " + transitivity);
+            Set<State> stateCache = new LongStateCache(transitivity,24);
+            ArrayList<String> results = new ArrayList<>();
+            HashMap<Integer, List<String>> smallGroupGenerators = new HashMap<>();
+
+            checkGenerator(debug, g, results, smallGroupGenerators, stateCache);
+
+            if (results.size() > 0 || smallGroupGenerators.size() > 0) {
+
+                System.out.println("Found generator at transitivity " + transitivity);
+                for (Map.Entry<Integer, List<String>> e : smallGroupGenerators.entrySet()) {
+                    System.out.println("Order " + e.getKey() + ":");
+                    for (String genString : e.getValue()) {
+                        System.out.println(genString);
+                    }
+                }
+                for (String genString : results) {
+                    int[][] cycles = GroupExplorer.parseOperations(genString).get(0);
+                    PentagonalIcositrahedron.printVertexGeneratorNotations((new int[][][] {cycles}));
+                    System.out.println(genString);
+                }
+
+                break;
+            }
+        }
+    }
 
     public static void checkCube_8p() throws Exception {
 
@@ -208,7 +303,7 @@ public class CubicGenerators {
 				vertices.generator()[0],
 			});
 
-            checkGenerator(g, results, smallGroupGenerators, new LongStateCache(8, 24));
+            checkGenerator(false, g, results, smallGroupGenerators, new LongStateCache(8, 24));
 
                 
             
@@ -301,7 +396,7 @@ public class CubicGenerators {
 				vertices.generator()[0],
 			});
 
-            checkGenerator(g, results, smallGroupGenerators, new LongStateCache(8, 24));
+            checkGenerator(false, g, results, smallGroupGenerators, new LongStateCache(8, 24));
 
                 
             
@@ -375,7 +470,7 @@ public class CubicGenerators {
 			});
 
             //vertices2.parallelStream().forEach(g -> {
-                checkGenerator(g, results, smallGroupGenerators);
+                checkGenerator(false, g, results, smallGroupGenerators);
             
             //});
 
@@ -448,7 +543,7 @@ public class CubicGenerators {
 			});
 
             //vertices2.parallelStream().forEach(g -> {
-                checkGenerator(g, results, smallGroupGenerators);
+                checkGenerator(false, g, results, smallGroupGenerators);
             
             //});
 
@@ -555,7 +650,7 @@ public class CubicGenerators {
             System.out.println("Checking " + vertices2.size() + " matches");
 
             vertices2.parallelStream().forEach(g -> {
-                checkGenerator(g, results, smallGroupGenerators);
+                checkGenerator(false, g, results, smallGroupGenerators);
             
             });
 
@@ -719,12 +814,12 @@ public class CubicGenerators {
 
     }
 
-    private static void checkGenerator(Generator g, List<String> lgGroupResults, Map<Integer, List<String>> smallGroupGenerators) {
-        checkGenerator(g, lgGroupResults, smallGroupGenerators, new M24StateCache());
+    private static void checkGenerator(boolean debug, Generator g, List<String> lgGroupResults, Map<Integer, List<String>> smallGroupGenerators) {
+        checkGenerator(debug, g, lgGroupResults, smallGroupGenerators, new M24StateCache());
     }
 
-    private static void checkGenerator(Generator g, List<String> lgGroupResults, Map<Integer, List<String>> smallGroupGenerators, Set<State> stateCache) {
-        ParityStateCache cache = new ParityStateCache(new M24StateCache());
+    private static void checkGenerator(boolean debug, Generator g, List<String> lgGroupResults, Map<Integer, List<String>> smallGroupGenerators, Set<State> stateCache) {
+        ParityStateCache cache = new ParityStateCache(new HashSet<>(), stateCache);
         String genString = GroupExplorer.generatorsToString(g.generator());
         GroupExplorer candidate = new GroupExplorer(
             genString,
@@ -744,7 +839,7 @@ public class CubicGenerators {
         while (iters == -2) {
             int[] depthA = new int[] {0};
             try {
-                iters = candidate.iterateExploration(false, limit, (states, depth) -> {
+                iters = candidate.iterateExploration(debug, limit, (states, depth) -> {
                     stateCount[0] = stateCount[1];
                     stateCount[1] += states.size();
                     depthA[0] = depth;

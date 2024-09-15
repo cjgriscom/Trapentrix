@@ -27,8 +27,6 @@ public class VertexColorSearch {
 	Generator colorSymmGen;
 	SubgroupKey colorSymmSubgroup;
 
-	boolean allowMissingVertices = false;
-
 	public VertexColorSearch(int[][][] fullSymmetryGroup, int nVertices, Function<Integer, int[]> getFacesFromVertex, Function<int[], Integer> getMatchingVertexFromFaces) {
 		this.fullSymmetryGroup = fullSymmetryGroup;
 		this.nVertices = nVertices;
@@ -43,11 +41,6 @@ public class VertexColorSearch {
 
 		this.colorSymmGen = new Generator(fullSymmetryGroup);
 		this.colorSymmSubgroup = new SubgroupKey(symmetryOrder, findSymmetryCopiesOfVertex(colorSymmGen, 1, null).keySet());
-	}
-
-	public VertexColorSearch allowMissingVertices(boolean allowMissingVertices) {
-		this.allowMissingVertices = allowMissingVertices;
-		return this;
 	}
 
 	public LinkedHashMap<Integer, int[]> findSymmetryCopiesOfVertex(Generator gen, int vertex, Map<Integer, LinkedHashMap<Integer, int[]>> vertexSymmetryCache) {
@@ -123,8 +116,7 @@ public class VertexColorSearch {
             for (int i = 0; i < vertexToColor.length; i++) {
                 if (vertexToColor[i] == 0) {
                     vertexToColor[i] = -1; // Missing vertex
-					System.out.println("Missing vertex " + i);
-                    //if (!allowMissingVertices) return null;
+                    return null;
                 }
             }
 
@@ -132,6 +124,14 @@ public class VertexColorSearch {
 			if (congruentColors.size() == 1) {
 				return null;
 			}
+
+            // Make sure all the color sets are the same size
+            int size = congruentColors.get(1).size();
+            for (int c : congruentColors.keySet()) {
+                if (congruentColors.get(c).size() != size) {
+                    return null;
+                }
+            }
 
 			// Renumber
 			int[] vertexToColor2 = new int[vertexToColor.length];
@@ -186,24 +186,14 @@ public class VertexColorSearch {
 
         for (ColorMapping cm : colorMappings) {
 			System.out.print("Colors: " + Arrays.stream(cm.getVertexToColorMap()).distinct().count());
-
-            int[][][] genCombineArr = cm.axesGen.generator();
-            int[] symmetries = new int[genCombineArr.length];
-            StringBuilder sb = new StringBuilder(", Symmetry : ");
-            for (int i = 0; i < genCombineArr.length; i++) {
-                Set<Integer> aA = findSymmetryCopiesOfVertex(new Generator(new int[][][] {genCombineArr[i]}), 1, null).keySet();
-                int a = aA.size();
-                symmetries[i] = a;
-                sb.append(a).append(" ");
-            }
-            System.out.print(sb + ", cycle lengths");
+            System.out.print(" Axes: " + cm.axesSubgroup.order);
+            System.out.print(", cycle lengths");
 			int[][][] gen = cm.axesGen.generator();
 			for (int[][] cycles : gen) {
 				System.out.print(" " + cycles[0].length);
 			}
-			System.out.print(", ");
+			System.out.print(",    \t");
 
-            System.out.println();
 			SubgroupKey k = cm.axesSubgroup;
 			System.out.println(k.order + " " + Arrays.toString(k.vertex1Positions));
                     
@@ -259,13 +249,7 @@ public class VertexColorSearch {
                         int cacheColor = cacheItem[i];
                         int mappedColor = colorMappingPermuted[i];
                         
-                        if (cacheColor == -1) {
-                            // Missing vertex ; make sure mapped color is also missing
-                            if (mappedColor != -1) {
-                                colorMapsEqual = false;
-                                break;
-                            }
-                        } else if (colorAssoc[cacheColor] == 0) {
+                        if (colorAssoc[cacheColor] == 0) {
                             // Assign the color and continue
                             colorAssoc[cacheColor] = mappedColor;
                         } else {
@@ -313,9 +297,12 @@ public class VertexColorSearch {
         return false;
     }
 
-    public static class SubgroupKey {
+    public class SubgroupKey {
         int[] vertex1Positions;
         int order;
+        public SubgroupKey(int order, int[][][] generator) {
+            this(order, findSymmetryCopiesOfVertex(new Generator(generator), 1, null).keySet());
+        }
         public SubgroupKey(int order, int[] vertex1Positions) { this.vertex1Positions = vertex1Positions; this.order = order; }
         public SubgroupKey(int order, Set<Integer> vertex1Colors) { this.order = order; this.vertex1Positions = vertex1Colors.stream().mapToInt(i -> i).toArray(); }
         @Override public int hashCode() { return order*31 + Arrays.hashCode(vertex1Positions); }
@@ -351,8 +338,7 @@ public class VertexColorSearch {
                 ge2 = new GroupExplorer(genString, MemorySettings.DEFAULT);
                 ge2.exploreStates(false, null);
                 if (ge2.order() == ge.order()) continue; // Not a subgroup
-                Set<Integer> aA = findSymmetryCopiesOfVertex(new Generator(generator), 1, null).keySet();
-                subgroups.put(new SubgroupKey(ge2.order(), aA), generator);
+                subgroups.put(new SubgroupKey(ge2.order(), generator), generator);
             }
             
         }
