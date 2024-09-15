@@ -21,7 +21,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class LMDBCache extends AbstractSet<State> implements Closeable {
-    private static final int KEY_SIZE = 16; // TODO configurable
+    private static final int KEY_SIZE = 35; // TODO configurable
     
     private final ReadWriteLock batchLock = new ReentrantReadWriteLock();
 
