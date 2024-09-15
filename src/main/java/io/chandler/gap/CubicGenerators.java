@@ -70,10 +70,18 @@ public class CubicGenerators {
 	
 
 	public static void main(String[] args) throws Exception {
-		    PentagonalIcositrahedron.printVertexGeneratorNotations(new Generator(GroupExplorer.parseOperationsArr("(23,15,24)(14,12,13)(11,10,7)(22,8,9)(20,17,18)(2,16,3)(5,1,4)(6,19,21)")).generator());
+        PentagonalIcositrahedron.printVertexGeneratorNotations(new Generator(GroupExplorer.parseOperationsArr("(23,15,24)(14,12,13)(11,10,7)(22,8,9)(20,17,18)(2,16,3)(5,1,4)(6,19,21)")).generator());
         
+        // Predictions
+
+        int[][][] piCubicSymm = GroupExplorer.parseOperationsArr(CubicGenerators.cubicPISymmetries_2);
+        VertexColorSearch vcs = new VertexColorSearch(piCubicSymm, PentagonalIcositrahedron::getFacesFromVertex, PentagonalIcositrahedron::getMatchingVertexFromFaces);
+
+        vcs.searchForGenerators();
+
+
         //findCube_8p();
-        checkCube_8p();
+        //checkCube_8p();
 
 
 	}

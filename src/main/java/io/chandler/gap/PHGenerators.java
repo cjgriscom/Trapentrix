@@ -1,20 +1,20 @@
 package io.chandler.gap;
 
-import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.function.Function;
 
 import io.chandler.gap.GroupExplorer.Generator;
 import io.chandler.gap.GroupExplorer.MemorySettings;
+import io.chandler.gap.VertexColorSearch.ColorMapping;
 import io.chandler.gap.cache.M24StateCache;
 import io.chandler.gap.cache.ParityStateCache;
 import io.chandler.gap.cache.State;
@@ -49,8 +49,6 @@ public class PHGenerators {
             "(53,46,42)(50,49,51)" +
         "]";
 
-
-
 	public static void main(String[] args) throws Exception {
 		    //PentagonalHexecontahedron.printVertexGeneratorNotations(new Generator(GroupExplorer.parseOperationsArr("(23,15,24)(14,12,13)(11,10,7)(22,8,9)(20,17,18)(2,16,3)(5,1,4)(6,19,21)")).generator());
         
@@ -59,134 +57,17 @@ public class PHGenerators {
         get3D_180Symm();       // Order 3 (30p 2-cycles)
         getTetrahedralSymm();  // Order 12 (20p 3-cycles)
 
-        get5FoldSymm();
 
 
-        int tests = 10000;
+        VertexColorSearch vcs = new VertexColorSearch(getDodecahedralSymm(), PentagonalHexecontahedron::getFacesFromVertex, PentagonalHexecontahedron::getMatchingVertexFromFaces);
+        // Really not confident that this is correct, i.e. why doesn't it return a 10x6?
+        List<ColorMapping> colorMappings = vcs.searchForGenerators();
 
-        // Make sure they all generate the same group
-        Map<Generator, Generator> pairs = findUniqueSubgroupPairs();
-        for (Entry<Generator, Generator> e : pairs.entrySet()) {
-            
-            Generator combined = Generator.combine(e.getKey(), e.getValue());
-            GroupExplorer ge = new GroupExplorer(GroupExplorer.generatorsToString(combined.generator()), MemorySettings.DEFAULT);
-            ge.exploreStates(false, null);
-            if (ge.order() != 60) {
-                System.out.println("Found non-60 order: " + ge.order());
-            } else {
-                int a = findSymmetryOfPHVertex(e.getKey(), 1, null).size();
-                int b = findSymmetryOfPHVertex(e.getValue(), 1, null).size();
-                
-                System.out.println("Symmetry : " + a + " " + b + " " + (a * b));
-                tests--;
-            }
-            if (tests == 0) break;
-        }
+        //A 5 [1, 24, 18, 21, 14]
+        //B 12 [1, 60, 45, 28, 3, 58, 30, 44, 59, 2, 43, 29]
 
-        
+
 	}
-
-    private static Map<Generator, Generator> findUniqueSubgroupPairs() {
-
-        ArrayList<Entry<Integer, int[][][]>> subgroups = findSubgroups(getDodecahedralSymm());
-        
-        int subgroupPairsTotal = 0;
-        HashMap<Generator, Generator> subgroupPairsIsomorphic = new HashMap<>();
-
-        // Find all pairs whose orders multiply to 60 (?)
-        for (Entry<Integer, int[][][]> e : subgroups) {
-            for (Entry<Integer, int[][][]> e2 : subgroups) {
-                if (e.getKey() * e2.getKey() == 60) {
-                    Generator g1 = new Generator(e.getValue());
-                    Generator g2 = new Generator(e2.getValue());
-                    subgroupPairsTotal++;
-                    if (subgroupPairsIsomorphic.containsKey(g1) || subgroupPairsIsomorphic.containsKey(g2)) {
-                        continue;
-                    }
-                    if (e.getKey() < e2.getKey()) {
-                        subgroupPairsIsomorphic.put(g1, g2);
-                    } else {
-                        subgroupPairsIsomorphic.put(g2, g1);
-                    }
-                }
-            }
-        }
-
-        System.out.println("Total subgroup pairs: " + subgroupPairsTotal);
-        System.out.println("Unique subgroup pairs: " + subgroupPairsIsomorphic.size());
-
-        return subgroupPairsIsomorphic;
-    }
-    
-    private static ArrayList<Entry<Integer, int[][][]>> findSubgroups(int[][][] gen) {
-        ArrayList<Entry<Integer, int[][][]>> subgroups = new ArrayList<>();
-       
-        HashSet<State> stateCache = new HashSet<>();
-        GroupExplorer ge = new GroupExplorer(GroupExplorer.generatorsToString(gen), MemorySettings.DEFAULT, stateCache);
-        ge.exploreStates(false,  null);
-
-        System.out.println("Found " + stateCache.size() + " states");
-        for (State a : stateCache) {
-            for (State b : stateCache) {
-                int[][][] generator;
-                if (a.equals(b)) {
-                    generator = new int[][][] {
-                        GroupExplorer.stateToCycles(a.state()),
-                    };
-                } else {
-                    generator = new int[][][] {
-                        GroupExplorer.stateToCycles(a.state()),
-                        GroupExplorer.stateToCycles(b.state()),
-                    };
-                }
-
-                GroupExplorer ge2 = null;
-                String genString = GroupExplorer.generatorsToString(generator);
-                if (genString.equals("[]")) continue; // Idendity
-                ge2 = new GroupExplorer(genString, MemorySettings.DEFAULT);
-                ge2.exploreStates(false, null);
-                if (ge2.order() == ge.order()) continue; // Not a subgroup
-                subgroups.add(new AbstractMap.SimpleEntry<>(ge2.order(), generator));
-            }
-            
-        }
-        System.out.println("Order " + ge.order());
-        return subgroups;
-    }
-
-
-    private static LinkedHashMap<Integer, int[]> findSymmetryOfPHVertex(Generator gen, int vertex, Map<Integer, LinkedHashMap<Integer, int[]>> vertexSymmetryCache) {
-        
-        if (vertexSymmetryCache != null && vertexSymmetryCache.containsKey(vertex)) {
-            return vertexSymmetryCache.get(vertex);
-        }
-        
-        HashSet<State> cache = new HashSet<>();
-        GroupExplorer ge = new GroupExplorer(GroupExplorer.generatorsToString(gen.generator()), MemorySettings.DEFAULT, cache);
-
-        int[] vertexFaces = PentagonalHexecontahedron.getFacesFromVertex(vertex);
-        LinkedHashMap<Integer, int[]> vertexMapping = new LinkedHashMap<>();
-
-        List<int[]> states = new ArrayList<>();
-        states.add(ge.copyCurrentState());
-        ge.exploreStates(false, (states2, depth) -> {
-            states.addAll(states2);
-        });
-        for (int[] s : states) {
-            int[] analogousFaces = new int[3];
-            for (int fi = 0; fi < 3; fi++) {
-                int face = vertexFaces[fi];
-                analogousFaces[fi] = s[face - 1];
-            }
-            int cacheIndex = PentagonalHexecontahedron.getMatchingVertexFromFaces(analogousFaces);
-            vertexMapping.put(cacheIndex, analogousFaces);
-        }
-        
-        if (vertexSymmetryCache != null) {
-            vertexSymmetryCache.put(vertex, vertexMapping);
-        }
-        return vertexMapping;
-    }
 
 
     private static Map<Integer, LinkedHashMap<Integer, int[]>> vertexToIcosidodecSymmetryCache = new HashMap<>();
