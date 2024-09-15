@@ -23,10 +23,11 @@ public class VertexColorSearch {
 	Function<int[], Integer> getMatchingVertexFromFaces;
 	HashSet<State> fullSymmetryStates;
 	int symmetryOrder;
-	int nElements;
+	int nVertices;
 
-	public VertexColorSearch(int[][][] fullSymmetryGroup, Function<Integer, int[]> getFacesFromVertex, Function<int[], Integer> getMatchingVertexFromFaces) {
+	public VertexColorSearch(int[][][] fullSymmetryGroup, int nVertices, Function<Integer, int[]> getFacesFromVertex, Function<int[], Integer> getMatchingVertexFromFaces) {
 		this.fullSymmetryGroup = fullSymmetryGroup;
+		this.nVertices = nVertices;
 		this.getFacesFromVertex = getFacesFromVertex;
 		this.getMatchingVertexFromFaces = getMatchingVertexFromFaces;
 
@@ -35,10 +36,9 @@ public class VertexColorSearch {
         ge.resetElements(true);
         ge.exploreStates(false, null);
 		this.symmetryOrder = ge.order();
-		this.nElements = ge.nElements;
 	}
 
-	private LinkedHashMap<Integer, int[]> findSymmetryCopiesOfVertex(Generator gen, int vertex, Map<Integer, LinkedHashMap<Integer, int[]>> vertexSymmetryCache) {
+	public LinkedHashMap<Integer, int[]> findSymmetryCopiesOfVertex(Generator gen, int vertex, Map<Integer, LinkedHashMap<Integer, int[]>> vertexSymmetryCache) {
 		
         if (vertexSymmetryCache != null && vertexSymmetryCache.containsKey(vertex)) {
             return vertexSymmetryCache.get(vertex);
@@ -102,28 +102,44 @@ public class VertexColorSearch {
 
         
 
-		public int[] getElementToColorMap(boolean allowMissingVertices, int nElements) {
-            int[] elementToColor = new int[nElements];
+		public int[] getVertexToColorMap(boolean allowMissingVertices, boolean allowCongruency, int nVertices) {
+            int[] vertexToColor = new int[nVertices];
+
+			HashMap<Integer, HashSet<Integer>> congruentColors = new HashMap<>();
 
             int color = 1;
             for (int vertex : colorSymmSubgroup.vertex1Positions) {
                 for (int axis : findSymmetryCopiesOfVertex(this.axesGen, vertex, null).keySet()) {
-                    if (elementToColor[axis - 1] != 0 && elementToColor[axis - 1] != color) {
-                        return null;
-                    }
-                    elementToColor[axis - 1] = color;
+					if (vertexToColor[axis - 1] == 0) {
+						// Assign color
+						vertexToColor[axis - 1] = color;
+						congruentColors.put(color, new HashSet<>(color));
+					} else if (vertexToColor[axis - 1] != color) {
+						if (allowCongruency) {
+							congruentColors.get(vertexToColor[axis - 1]).add(color);
+						} else {
+							return null;
+						}
+					}
                 }
                 color++;
             }
 
-            for (int i = 0; i < elementToColor.length; i++) {
-                if (elementToColor[i] == 0) {
-                    elementToColor[i] = -1; // Missing face
-                    if (!allowMissingVertices) return null;
+            for (int i = 0; i < vertexToColor.length; i++) {
+                if (vertexToColor[i] == 0) {
+                    vertexToColor[i] = -1; // Missing vertex
+					System.out.println("Missing vertex " + i);
+                    //if (!allowMissingVertices) return null;
                 }
             }
 
-            return elementToColor;
+			// Check make sure there are multiple disconnected color sets
+			if (congruentColors.size() == 1) {
+				return null;
+			}
+
+
+            return vertexToColor;
 		}
     }
 
@@ -135,8 +151,10 @@ public class VertexColorSearch {
 
         ArrayList<ColorMapping> colorMappings = new ArrayList<>();
 
+        HashMap<SubgroupKey, int[][][]> subgroups = findSubgroups(fullSymmetryGroup);
+        
         // Make sure they all generate the same group
-        Map<SubgroupKeyCollection, Generator[]> pairs = findUniqueSubgroupPairs();
+        Map<SubgroupKeyCollection, Generator[]> pairs = findUniqueSubgroupPairs(subgroups);
         for (Entry<SubgroupKeyCollection, Generator[]> e : pairs.entrySet()) {
             int[][][] gArr1 = e.getValue()[0].generator();
             int[][][] gArr2 = e.getValue()[1].generator();
@@ -172,7 +190,7 @@ public class VertexColorSearch {
         System.out.println("Accepts: " + (pairs.size() - rejects));
         System.out.println("Color mappings: " + colorMappings.size());
 
-        reduceIsomorphicAndInvalidColorMappings(true, colorMappings);
+        reduceIsomorphicAndInvalidColorMappings(false, true, colorMappings);
         System.out.println("Unique color mappings: " + colorMappings.size());
 
         for (ColorMapping cm : colorMappings) {
@@ -207,18 +225,30 @@ public class VertexColorSearch {
         return colorMappings;
     }
 
-    private void reduceIsomorphicAndInvalidColorMappings(boolean allowMissingVertices, ArrayList<ColorMapping> colorMappings) {
-        
+	private static int countDistinctColors(int[] elementToColor) {
+		//(int)Arrays.stream(cacheItem).distinct().count();
+		HashSet<Integer> colors = new HashSet<>();
+		for (int c : elementToColor) {
+			if (c != -1) {
+				colors.add(c);
+			}
+		}
+		return colors.size();
+	}
+
+    public void reduceIsomorphicAndInvalidColorMappings(boolean allowMissingVertices, boolean allowCongruency, ArrayList<ColorMapping> colorMappings) {
         HashSet<int[]> colorMappingCache = new HashSet<>();
         Iterator<ColorMapping> iter = colorMappings.iterator();
         while (iter.hasNext()) {
             ColorMapping cm = iter.next();
-            int[] elementToColor = cm.getElementToColorMap(allowMissingVertices, nElements);
 
-            if (elementToColor == null) {
+            int[] vertexToColor = cm.getVertexToColorMap(allowMissingVertices, allowCongruency, nVertices);
+
+            if (vertexToColor == null) {
                 iter.remove();
                 continue;
             }
+			int nColors = countDistinctColors(vertexToColor);
 
             // generate the N full symmetries of the color mapping
             // Then for each, see if the colors map 1:1 to any element in the cache
@@ -226,19 +256,17 @@ public class VertexColorSearch {
             boolean found = false;
             for (State s : fullSymmetryStates) {
                 int[] state = s.state();
-                int[] colorMappingPermuted = new int[elementToColor.length];
+                int[] colorMappingPermuted = new int[vertexToColor.length];
+				
                 for (int i = 0; i < state.length; i++) {
-                    colorMappingPermuted[i] = elementToColor[state[i] - 1];
+                    colorMappingPermuted[i] = vertexToColor[state[i] - 1];
                 }
                 for (int[] cacheItem : colorMappingCache) {
-					int nColorsCache, nColorsSelf;
-					nColorsCache = (int)Arrays.stream(cacheItem).distinct().count();
-					nColorsSelf = (int)Arrays.stream(colorMappingPermuted).distinct().count();
-					if (nColorsCache != nColorsSelf) continue;
+					int nColorsCache = countDistinctColors(cacheItem);
+					if (nColorsCache != nColors) continue;
 
                     // Greedily try to match each element
-                    int nColors = state.length;
-                    int[] colorAssoc = new int[nColors];
+                    int[] colorAssoc = new int[nColors+1];
                     boolean colorMapsEqual = true;
                     for (int i = 0; i < cacheItem.length; i++) {
                         int cacheColor = cacheItem[i];
@@ -273,7 +301,7 @@ public class VertexColorSearch {
             if (found) {
                 iter.remove();
             } else {
-                colorMappingCache.add(elementToColor);
+                colorMappingCache.add(vertexToColor);
             }
         }
     }
@@ -323,19 +351,22 @@ public class VertexColorSearch {
         }
     }
 
-    private Map<SubgroupKeyCollection,Generator[]> findUniqueSubgroupPairs() {
+    private Map<SubgroupKeyCollection,Generator[]> findUniqueSubgroupPairs(HashMap<SubgroupKey, int[][][]> subgroups) {
 
-        HashMap<SubgroupKey, int[][][]> subgroups = findSubgroups(fullSymmetryGroup);
-        
         int subgroupPairsTotal = 0;
         HashMap<SubgroupKeyCollection, Generator[]> subgroupPairsIsomorphic = new HashMap<>();
 
-        // Find all pairs whose orders multiply to 60
+        // Find all pairs whose generators combine to equal symmetry order
         for (Entry<SubgroupKey, int[][][]> e : subgroups.entrySet()) {
             for (Entry<SubgroupKey, int[][][]> e2 : subgroups.entrySet()) {
                 Generator g1 = new Generator(e.getValue());
                 Generator g2 = new Generator(e2.getValue());
-                if (e.getKey().order * e2.getKey().order == symmetryOrder) {
+
+				Generator gCombined = Generator.combine(g1, g2);
+				GroupExplorer geCombined = new GroupExplorer(GroupExplorer.generatorsToString(gCombined.generator()), MemorySettings.DEFAULT);
+				geCombined.exploreStates(false, null);
+				
+                if (geCombined.order() == symmetryOrder) {
                     subgroupPairsTotal++;
                     insertGeneratorFilterDuplicates(subgroupPairsIsomorphic, 
                         new SubgroupKey[]{e.getKey(), e2.getKey()},
@@ -350,11 +381,11 @@ public class VertexColorSearch {
         return subgroupPairsIsomorphic;
     }
 
-    private static class SubgroupKey {
+    public static class SubgroupKey {
         int[] vertex1Positions;
         int order;
-        private SubgroupKey(int order, int[] vertex1Positions) { this.vertex1Positions = vertex1Positions; this.order = order; }
-        private SubgroupKey(int order, Set<Integer> vertex1Colors) { this.order = order; this.vertex1Positions = vertex1Colors.stream().mapToInt(i -> i).toArray(); }
+        public SubgroupKey(int order, int[] vertex1Positions) { this.vertex1Positions = vertex1Positions; this.order = order; }
+        public SubgroupKey(int order, Set<Integer> vertex1Colors) { this.order = order; this.vertex1Positions = vertex1Colors.stream().mapToInt(i -> i).toArray(); }
         @Override public int hashCode() { return order*31 + Arrays.hashCode(vertex1Positions); }
         @Override public boolean equals(Object obj) {  return order == ((SubgroupKey)obj).order && Arrays.equals(vertex1Positions, ((SubgroupKey)obj).vertex1Positions); }
     }

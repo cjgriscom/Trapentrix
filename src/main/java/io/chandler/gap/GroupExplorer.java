@@ -46,6 +46,11 @@ public class GroupExplorer implements AbstractGroupProperties {
             }
         }
 
+        @Override
+        public String toString() {
+            return GroupExplorer.generatorsToString(generator());
+        }
+
         public static Generator combine(Generator a, Generator b) {
             int[][][] result = new int[a.generator.length + b.generator.length][][];
             for (int i = 0; i < a.generator.length; i++) {

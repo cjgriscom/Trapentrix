@@ -15,6 +15,7 @@ import java.util.Set;
 import io.chandler.gap.GroupExplorer.Generator;
 import io.chandler.gap.GroupExplorer.MemorySettings;
 import io.chandler.gap.VertexColorSearch.ColorMapping;
+import io.chandler.gap.VertexColorSearch.SubgroupKey;
 import io.chandler.gap.cache.M24StateCache;
 import io.chandler.gap.cache.ParityStateCache;
 import io.chandler.gap.cache.State;
@@ -57,17 +58,89 @@ public class PHGenerators {
         get3D_180Symm();       // Order 3 (30p 2-cycles)
         getTetrahedralSymm();  // Order 12 (20p 3-cycles)
 
+        VertexColorSearch vcs = new VertexColorSearch(getDodecahedralSymm(), 60, PentagonalHexecontahedron::getFacesFromVertex, PentagonalHexecontahedron::getMatchingVertexFromFaces);
+
+        // Manually construct 10x6 that I know is correct
+        int[] s0 = findCycleInStateList(new int[] {18,58}, vcs.fullSymmetryStates).iterator().next().state();
+        int[] s1 = findCycleInStateList(new int[] {4,5,6}, vcs.fullSymmetryStates).iterator().next().state();
+        int[] s2 = findCycleInStateList(new int[] {1,4,7,10,13}, vcs.fullSymmetryStates).iterator().next().state();
+        int[] s3 = findCycleInStateList(new int[] {31,24}, vcs.fullSymmetryStates).iterator().next().state();
+
+        int[][] c0 = GroupExplorer.stateToCycles(s0);
+        int[][] c1 = GroupExplorer.stateToCycles(s1);
+        int[][] c2 = GroupExplorer.stateToCycles(s2);
+        int[][] c3 = GroupExplorer.stateToCycles(s3);
+
+        Generator colorGen = new Generator(new int[][][] {c0, c2});
+        Generator axesGen = new Generator(new int[][][] {c1, c3});
+
+        GroupExplorer ge0 = new GroupExplorer(colorGen.toString(), MemorySettings.DEFAULT);
+        ge0.exploreStates(false, null);
+        System.out.println(ge0.order());
+
+        GroupExplorer ge1 = new GroupExplorer(axesGen.toString(), MemorySettings.DEFAULT);
+        ge1.exploreStates(false, null);
+        System.out.println(ge1.order());
 
 
-        VertexColorSearch vcs = new VertexColorSearch(getDodecahedralSymm(), PentagonalHexecontahedron::getFacesFromVertex, PentagonalHexecontahedron::getMatchingVertexFromFaces);
+        GroupExplorer combined = new GroupExplorer(Generator.combine(colorGen, axesGen).toString(), MemorySettings.DEFAULT);
+        combined.exploreStates(false, null);
+        System.out.println(combined.order());
+
+        System.out.println(ge0.order() * ge1.order());
+
+        LinkedHashMap<Integer, int[]> skColor = vcs.findSymmetryCopiesOfVertex(colorGen, 1, null);
+        LinkedHashMap<Integer, int[]> skAxes = vcs.findSymmetryCopiesOfVertex(axesGen, 1, null);
+
+        ColorMapping cm = vcs.new ColorMapping(
+            new SubgroupKey(ge0.order(), skColor.keySet()),
+            colorGen,
+            new SubgroupKey(ge1.order(), skAxes.keySet()),
+            axesGen);
+
+        ArrayList<ColorMapping> colorMappings = new ArrayList<>();
+        colorMappings.add(cm);
+
+        int[] vtc = cm.getVertexToColorMap(false, true, 60);
+        System.out.println(Arrays.toString(vtc));
+
+        vcs.reduceIsomorphicAndInvalidColorMappings(false, true, colorMappings);
+
+        System.out.println(colorMappings.size());
+        
         // Really not confident that this is correct, i.e. why doesn't it return a 10x6?
-        List<ColorMapping> colorMappings = vcs.searchForGenerators();
+        //List<ColorMapping> colorMappings = vcs.searchForGenerators();
 
         //A 5 [1, 24, 18, 21, 14]
         //B 12 [1, 60, 45, 28, 3, 58, 30, 44, 59, 2, 43, 29]
 
 
 	}
+
+    private static List<State> findCycleInStateList(int[] ref, Set<State> states) {
+        List<State> cycleStates = new ArrayList<>();
+        for (State s : states) {
+            int[][] cyclesA = GroupExplorer.stateToCycles(s.state());
+            if (cyclesA.length == 0) continue;
+            if (cyclesA[0].length != ref.length) continue;
+            boolean found = false;
+            for (int[] cycle : cyclesA) {
+                int[] cycleX = cycle.clone();
+                for (int i = 0; i < cycle.length; i++) {
+                    int[] cycleY = CycleInverter.invertArray(cycleX);
+                    if (Arrays.equals(cycleX, ref) || Arrays.equals(cycleY, ref)) {
+                        found = true;
+                        break;
+                    }
+                    ArrayRotator.rotateLeft(cycleX);
+                }
+            }
+            if (found) {
+                cycleStates.add(s);
+            }
+        }
+        return cycleStates;
+    }
 
 
     private static Map<Integer, LinkedHashMap<Integer, int[]>> vertexToIcosidodecSymmetryCache = new HashMap<>();

@@ -75,7 +75,7 @@ public class CubicGenerators {
         // Predictions
 
         int[][][] piCubicSymm = GroupExplorer.parseOperationsArr(CubicGenerators.cubicPISymmetries_2);
-        VertexColorSearch vcs = new VertexColorSearch(piCubicSymm, PentagonalIcositrahedron::getFacesFromVertex, PentagonalIcositrahedron::getMatchingVertexFromFaces);
+        VertexColorSearch vcs = new VertexColorSearch(piCubicSymm, 24, PentagonalIcositrahedron::getFacesFromVertex, PentagonalIcositrahedron::getMatchingVertexFromFaces);
 
         vcs.searchForGenerators();
 
