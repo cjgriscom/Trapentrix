@@ -15,6 +15,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+import io.chandler.gap.cache.ParityStateCache;
 import io.chandler.gap.cache.State;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 
@@ -319,7 +320,12 @@ public class GroupExplorer implements AbstractGroupProperties {
         if (peekList.size() > 0) {
             peekStateAndDepth.accept(peekList, iteration);
         }
+        int preTransferSize = stateMap.size();
+        int amntToTransfer = stateMapIncomplete.size();
         stateMap.addAll(stateMapIncomplete);
+        if (stateMap.size() != preTransferSize + amntToTransfer) {
+            throw new ParityStateCache.StateRejectedException("State map size mismatch: " + stateMap.size() + " != " + preTransferSize + " + " + amntToTransfer);
+        }
         Set<State> tmp = stateMapIncomplete;
         stateMapIncomplete = stateMapTmp;
         stateMapTmp = tmp;

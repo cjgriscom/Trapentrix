@@ -35,7 +35,6 @@ public class VertexColorSearch {
 
 		fullSymmetryStates = new HashSet<>();
         GroupExplorer ge = new GroupExplorer(GroupExplorer.generatorsToString(fullSymmetryGroup), MemorySettings.DEFAULT, fullSymmetryStates);
-        ge.resetElements(true);
         ge.exploreStates(false, null);
 		this.symmetryOrder = ge.order();
 

@@ -6,6 +6,13 @@ import java.util.AbstractSet;
 import java.util.Iterator;
 import java.util.Set;
 
+/**
+ * Used to check if a partial cache matches the full cache
+ *   useful for eliminating non N-transitive groups
+ * 
+ * Note that GroupExplorer checks cache parity internally now,
+ * so this probably isn't needed anymore
+ */
 public class ParityStateCache extends AbstractSet<State> {
     private final Set<State> map;
     private final Set<State> mapSupplied;
