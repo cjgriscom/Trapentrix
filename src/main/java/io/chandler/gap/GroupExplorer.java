@@ -25,7 +25,7 @@ public class GroupExplorer implements AbstractGroupProperties {
     private Set<State> stateMapIncomplete;
     private Set<State> stateMapTmp;
 
-    private int[] elements;
+    public int[] elements;
     private List<int[][]> parsedOperations;
     public int nElements;
     public final MemorySettings mem;
@@ -114,6 +114,9 @@ public class GroupExplorer implements AbstractGroupProperties {
     public GroupExplorer(String cycleNotation, MemorySettings mem) {
         this(cycleNotation, mem, new ObjectOpenHashSet<State>());
     }
+    public GroupExplorer(Generator g, int nElements, MemorySettings mem, Set<State> stateMap) {
+        this(g, nElements, mem, stateMap,  new ObjectOpenHashSet<State>(), new ObjectOpenHashSet<State>(), true);
+    }
     public GroupExplorer(String cycleNotation, MemorySettings mem, Set<State> stateMap) {
         this(cycleNotation, mem, stateMap,  new ObjectOpenHashSet<State>(), new ObjectOpenHashSet<State>(), true);
     }
@@ -129,6 +132,17 @@ public class GroupExplorer implements AbstractGroupProperties {
         this.stateMapTmp = stateMapTmp;
         elements = initializeElements(nElements);
         parsedOperations = parseOperations(cycleNotation);
+    }
+
+    public GroupExplorer(Generator g, int nElements, MemorySettings mem, Set<State> stateMap, Set<State> stateMapIncomplete, Set<State> stateMapTmp, boolean multithread) {
+        this.nElements = nElements;
+        this.multithread = multithread;
+        this.mem = mem;
+        this.stateMap = stateMap;
+        this.stateMapIncomplete = stateMapIncomplete;
+        this.stateMapTmp = stateMapTmp;
+        elements = initializeElements(nElements);
+        parsedOperations = Arrays.asList(g.generator());
     }
 
     public void resetElements(boolean addInitialState) {
@@ -417,6 +431,28 @@ public class GroupExplorer implements AbstractGroupProperties {
         }
         return newState;
     }
+
+    public static String describeStateForCache(int nElements, int[] state) {
+        int[][] cycles = stateToCycles(state);
+        int[] nCycles = new int[nElements + 1];
+        
+        for (int[] cycle : cycles) {
+            int length = cycle.length;
+            if (length > 1) { // Ignore 1-cycles (fixed points)
+                nCycles[length]++;
+            }
+        }
+        
+        StringBuilder description = new StringBuilder();
+        for (int i = 2; i <= nElements; i++) {
+            if (nCycles[i] > 0) {
+                int mul = nCycles[i];
+                description.append(mul).append(" ").append(i).append(" ");
+            }
+        }
+        return description.toString();
+    }
+
     public static String describeState(int nElements, int[] state) {
         int[][] cycles = stateToCycles(state);
         int[] nCycles = new int[nElements + 1];

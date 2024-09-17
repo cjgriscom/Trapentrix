@@ -100,7 +100,8 @@ public class PentagonalHexecontahedron {
 				if (!first) System.out.print(",");
 				first = false;
 				if (vert == 0) {
-					throw new RuntimeException("No match found for " + Arrays.toString(cycle));
+					//throw new RuntimeException("No match found for " + Arrays.toString(cycle));
+					System.out.print(Arrays.toString(cycle));
 				} else if (vert > 0) {
 					System.out.print("V" + vert + "R");
 					

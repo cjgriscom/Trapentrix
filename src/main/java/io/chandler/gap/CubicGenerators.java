@@ -15,13 +15,11 @@ import java.util.Map;
 import java.util.Scanner;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.stream.Collectors;
 
 import io.chandler.gap.GroupExplorer.Generator;
 import io.chandler.gap.GroupExplorer.MemorySettings;
 import io.chandler.gap.VertexColorSearch.ColorMapping;
 import io.chandler.gap.cache.InteractiveCachePair;
-import io.chandler.gap.cache.LongIntStateCache;
 import io.chandler.gap.cache.LongStateCache;
 import io.chandler.gap.cache.M24StateCache;
 import io.chandler.gap.cache.ParityStateCache;
@@ -69,13 +67,26 @@ public class CubicGenerators {
 	
 
 	public static void main(String[] args) throws Exception {
-        PentagonalIcositrahedron.printVertexGeneratorNotations(new Generator(GroupExplorer.parseOperationsArr("(23,15,24)(14,12,13)(11,10,7)(22,8,9)(20,17,18)(2,16,3)(5,1,4)(6,19,21)")).generator());
+        //PentagonalIcositrahedron.printVertexGeneratorNotations(new Generator(GroupExplorer.parseOperationsArr("(23,15,24)(14,12,13)(11,10,7)(22,8,9)(20,17,18)(2,16,3)(5,1,4)(6,19,21)")).generator());
         
         //findCube_8p();
         //checkCube_8p();
 
-        vertexColorSearchPI();
+        //vertexColorSearchPI();
+
+        doExhaustive3DSearch();
 	}
+
+    private static void doExhaustive3DSearch() {
+        VertexColorSearch2 vcs = VertexColorSearch2.pentagonalIcositrahedron_3D_180();
+        System.out.println(vcs.generateAllSelections().size());
+        vcs.filterOutIdenticalGenerators();
+        System.out.println(vcs.generateAllSelections().size());
+        vcs.forEachGeneratorWithInversions((gen, justCycles) -> {
+            boolean good = checkGenerator(false, 8, gen);
+            if (good) PentagonalIcositrahedron.printVertexGeneratorNotations(justCycles.generator());
+        });
+    }
 
     private static void vertexColorSearchPI() {
         int[][][] piCubicSymm = GroupExplorer.parseOperationsArr(CubicGenerators.cubicPISymmetries_2);
@@ -106,7 +117,7 @@ public class CubicGenerators {
                     new Generator(piCubicSymm)
                 );
                 System.out.println("Generating unified group with " + colors + " colors");
-                checkGenerator(false, gUnified);
+                checkGenerator(false, 13, gUnified);
 
                 System.out.println("Generating split groups : " + combinations.size() + " combinations");
 
@@ -133,7 +144,7 @@ public class CubicGenerators {
                     );
 
                     System.out.println("Generating split group with " + colors + " colors");
-                    checkGenerator(false, gSplit);
+                    checkGenerator(false, 8, gSplit);
                 }
             }
         }
@@ -151,8 +162,8 @@ public class CubicGenerators {
     }
 
 
-    private static void checkGenerator(boolean debug, Generator g) {
-        for (int transitivity = 7; transitivity <= 8; transitivity++) {
+    private static boolean checkGenerator(boolean debug, int transitivityMax, Generator g) {
+        for (int transitivity = transitivityMax; transitivity <= transitivityMax; transitivity++) {
 
             if (debug) System.out.println("Checking transitivity " + transitivity);
             Set<State> stateCache = new LongStateCache(transitivity,24);
@@ -172,13 +183,14 @@ public class CubicGenerators {
                 }
                 for (String genString : results) {
                     int[][] cycles = GroupExplorer.parseOperations(genString).get(0);
-                    PentagonalIcositrahedron.printVertexGeneratorNotations((new int[][][] {cycles}));
+                    //PentagonalIcositrahedron.printVertexGeneratorNotations((new int[][][] {cycles}));
                     System.out.println(genString);
                 }
 
-                break;
+                return true;
             }
         }
+        return false;
     }
 
     public static void checkCube_8p() throws Exception {
@@ -818,12 +830,11 @@ public class CubicGenerators {
         checkGenerator(debug, g, lgGroupResults, smallGroupGenerators, new M24StateCache());
     }
 
-    private static void checkGenerator(boolean debug, Generator g, List<String> lgGroupResults, Map<Integer, List<String>> smallGroupGenerators, Set<State> stateCache) {
-        ParityStateCache cache = new ParityStateCache(new HashSet<>(), stateCache);
+    private static void checkGenerator(boolean debug, Generator g, List<String> lgGroupResults, Map<Integer, List<String>> smallGroupGenerators, Set<State> cache) {
         String genString = GroupExplorer.generatorsToString(g.generator());
         GroupExplorer candidate = new GroupExplorer(
             genString,
-            MemorySettings.DEFAULT, cache);
+            MemorySettings.FASTEST, cache);
             
 
         ArrayList<String> depthPeek = new ArrayList<>();
@@ -836,6 +847,7 @@ public class CubicGenerators {
         
         double lastRatio = 0;
         candidate.initIterativeExploration();
+        HashMap<String, Integer> cycleDescriptions = new HashMap<>();
         while (iters == -2) {
             int[] depthA = new int[] {0};
             try {
@@ -843,6 +855,14 @@ public class CubicGenerators {
                     stateCount[0] = stateCount[1];
                     stateCount[1] += states.size();
                     depthA[0] = depth;
+                    for (int[] s : states) {
+                        String desc = GroupExplorer.describeState(candidate.nElements, s);
+                        cycleDescriptions.merge(desc, 1, Integer::sum);
+                        // Heuristic 3: If there are more than 50 cycle descriptions, it's the alternating group
+                        if (cycleDescriptions.size() > 50) {
+                            throw new RuntimeException("Too many cycle descriptions");
+                        }
+                    }
                 });
             } catch (ParityStateCache.StateRejectedException e) {
                 // Heuristic 1:
@@ -851,6 +871,9 @@ public class CubicGenerators {
                 // Fail because this can't happen for valid M24 generators
                 iters = -2;
                 //System.out.println("M24 cache is different");
+                break;
+            } catch (RuntimeException e) {
+                iters = -2;
                 break;
             }
             int depth = depthA[0];
@@ -863,7 +886,7 @@ public class CubicGenerators {
             boolean isDecreasing = ratio - lastRatio < 0.01;
             if (!isDecreasing && stateCount[1] > startCheckingRatioIncreaseAtOrder) {
                 //iters = -2;
-                System.out.println("Ratio rate increase");
+                //System.out.println("Ratio rate increase");
                 //break;
             }
             
@@ -882,6 +905,20 @@ public class CubicGenerators {
             System.out.println( GroupExplorer.generatorsToString(g.generator()));
             System.out.println(depthPeek.toString());
             lgGroupResults.add(GroupExplorer.generatorsToString(g.generator()));
+
+
+            /*
+            HashMap<String, Integer> cycleDescriptions = new HashMap<>();
+            for (State state : cache) {
+                String cycleDescription = GroupExplorer.describeState(candidate.nElements, state.state());
+                cycleDescriptions.merge(cycleDescription, 1, Integer::sum);
+                if (cycleDescriptions.size() % 100_000 == 0) {
+                    System.out.println("Processed " + cycleDescriptions.size() + " / " + cache.size() + " states");
+                }
+            }
+
+            printCycleDescriptions(cycleDescriptions);
+            */
         } else if (candidate.order() > 1) {
             // Add genString to smallGroupGenerators
             List<String> gens = smallGroupGenerators.computeIfAbsent(candidate.order(), k -> Collections.synchronizedList(new ArrayList<String>()));

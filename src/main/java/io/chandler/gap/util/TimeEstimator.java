@@ -10,7 +10,7 @@ public class TimeEstimator {
 	}
 
 
-    public void checkProgressEstimate(int currentIteration, int results) {
+    public synchronized void checkProgressEstimate(int currentIteration, int results) {
         
         long currentTime = System.currentTimeMillis();
         long elapsedTime = currentTime - startTime;

@@ -3,6 +3,7 @@ package io.chandler.gap.cache;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 
 import java.util.AbstractSet;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
 
@@ -23,7 +24,7 @@ public class ParityStateCache extends AbstractSet<State> {
     }
 
     public ParityStateCache(Set<State> mapSupplied) {
-        this.map = new ObjectOpenHashSet<State>();
+        this.map = new HashSet<State>();
         this.mapSupplied = mapSupplied;
     }
 

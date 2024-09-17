@@ -3,16 +3,17 @@ package io.chandler.gap.cache;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 
 import java.util.AbstractSet;
+import java.util.HashSet;
 import java.util.Iterator;
 
 public class LongStateCache extends AbstractSet<State> {
-    private final LongOpenHashSet map;
+    private final HashSet<Long> map;
 
     final long elementsToStore;
     final int nElements;
 
     public LongStateCache(long elementsToStore, int nElements) {
-        this.map = new LongOpenHashSet();
+        this.map = new HashSet<>();
         this.elementsToStore = elementsToStore;
         this.nElements = nElements;
     }
