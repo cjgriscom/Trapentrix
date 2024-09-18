@@ -47,6 +47,10 @@ public class GroupExplorer implements AbstractGroupProperties {
             }
         }
 
+        public Generator(int[][] cycles) {
+            this(new int[][][]{cycles});
+        }
+
         @Override
         public String toString() {
             return GroupExplorer.generatorsToString(generator());
