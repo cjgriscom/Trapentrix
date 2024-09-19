@@ -29,7 +29,7 @@ public class GroupExplorer implements AbstractGroupProperties {
     private List<int[][]> parsedOperations;
     public int nElements;
     public final MemorySettings mem;
-    public final boolean multithread;
+    public boolean multithread;
 
     public static class Generator {
         byte[][][] generator;
@@ -147,6 +147,10 @@ public class GroupExplorer implements AbstractGroupProperties {
         this.stateMapTmp = stateMapTmp;
         elements = initializeElements(nElements);
         parsedOperations = Arrays.asList(g.generator());
+    }
+
+    public void setMultithread(boolean multithread) {
+        this.multithread = multithread;
     }
 
     public void resetElements(boolean addInitialState) {
