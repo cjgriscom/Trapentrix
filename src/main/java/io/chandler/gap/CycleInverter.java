@@ -40,7 +40,7 @@ public class CycleInverter {
         generateInvertedCyclesHelper(generator, fixedCycleIndices, stateIndex, cycleIndex + 1, result, current);
 
         // Generate with current cycle inverted
-        if (!fixedCycleIndices[stateIndex][cycleIndex]) {
+        if (fixedCycleIndices == null || !fixedCycleIndices[stateIndex][cycleIndex]) {
             current[stateIndex][cycleIndex] = invertArray(generator[stateIndex][cycleIndex]);
             generateInvertedCyclesHelper(generator, fixedCycleIndices, stateIndex, cycleIndex + 1, result, current);
             current[stateIndex][cycleIndex] = generator[stateIndex][cycleIndex]; // Reset after use

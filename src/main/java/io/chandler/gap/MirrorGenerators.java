@@ -6,6 +6,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -13,7 +14,7 @@ import java.util.TreeMap;
 
 import io.chandler.gap.GroupExplorer.Generator;
 import io.chandler.gap.GroupExplorer.MemorySettings;
-import io.chandler.gap.cache.M23StateCache;
+import io.chandler.gap.cache.M24StateCache;
 import io.chandler.gap.cache.ParityStateCache;
 
 public class MirrorGenerators {
@@ -35,17 +36,28 @@ public class MirrorGenerators {
         {13, 16, 17}, {4, 6, 8},
     };
 
+    private static final int[][] gyroElSqBiDual = {
+        {1, 24, 17}, {2, 23, 22}, {4, 21, 20}, {3, 19, 18},
+        {17, 24, 12}, {24, 23, 13}, {23, 22, 14}, {22, 21, 15},
+        {21, 20, 16}, {20, 19, 9}, {19, 18, 10}, {18, 17, 11},
+        {16, 15, 21}, {15, 14, 22}, {14, 13, 23}, {13, 12, 24},
+        {12, 11, 17}, {11, 10, 18}, {10, 9, 19}, {9, 16, 20},
+        {5, 12, 13}, {6, 10, 11}, {8, 16, 9}, {7, 14, 15},
+    };
+
     public static void main(String[] args) throws Exception{
-        fullPairSearch();
+        int[][] pi = new int[32][];
+        for (int i = 0; i < 32; i++) pi[i] = PentagonalIcositrahedron.getFacesFromVertex(i+1);
+        fullPairSearch(pi);
     }
 
-    public static void fullPairSearch() throws Exception {
+    public static void fullPairSearch(int[][] geo) throws Exception {
         System.out.println("Starting full pair search");
         System.out.println("Press Q + Enter at any time to interrupt");
 
         Thread.sleep(3000);
 
-        ArrayList<Generator> validVertexCombinations = get6pVertexCombinations();
+        ArrayList<Generator> validVertexCombinations = get6pVertexCombinations(geo);
         Collections.shuffle(validVertexCombinations);
         
         System.out.println("Found " + validVertexCombinations.size() + " possible generators");
@@ -146,7 +158,7 @@ public class MirrorGenerators {
         out2.close();
     }
 
-    private static ArrayList<Generator> get6pVertexCombinations() {
+    private static ArrayList<Generator> get6pVertexCombinations(int[][] vertices) {
 
         HashSet<Generator> generatorCache = new HashSet<>();
 
@@ -155,16 +167,16 @@ public class MirrorGenerators {
         };
 
         HashSet<Integer> uniqueFaces = new HashSet<>();
-        PermuCallback.generateCombinations(piMirror3.length, 6, (b) -> {
+        PermuCallback.generateCombinations(vertices.length, 6, (b) -> {
     
 
             int[][] cyclesA = new int[][] {
-                piMirror3[b[0]],
-                piMirror3[b[1]],
-                piMirror3[b[2]],
-                piMirror3[b[3]],
-                piMirror3[b[4]],
-                piMirror3[b[5]],
+                vertices[b[0]],
+                vertices[b[1]],
+                vertices[b[2]],
+                vertices[b[3]],
+                vertices[b[4]],
+                vertices[b[5]],
             };
 
 
@@ -227,22 +239,21 @@ public class MirrorGenerators {
     }
 
     private static void checkGenerator(Generator g, List<String> lgGroupResults, Map<Integer, List<String>> smallGroupGenerators) {
-        ParityStateCache cache = new ParityStateCache(new M23StateCache());
+        ParityStateCache cache = new ParityStateCache(new M24StateCache());
         String genString = GroupExplorer.generatorsToString(g.generator());
         GroupExplorer candidate = new GroupExplorer(
             genString,
-            MemorySettings.DEFAULT, cache);
+            MemorySettings.FASTEST, cache);
             
 
         ArrayList<String> depthPeek = new ArrayList<>();
-        int startCheckingRatioIncreaseAtOrder = 313692;/// 739215;
         int limit = 443520 + 10;//10200960 + 1;
         int[] stateCount = new int[2];
         int iters = -2;
 
         //System.out.println(genString);
         
-        double lastRatio = 0;
+        HashMap<String, Integer> cycleDescriptions = new HashMap<>();
         candidate.initIterativeExploration();
         while (iters == -2) {
             int[] depthA = new int[] {0};
@@ -251,6 +262,12 @@ public class MirrorGenerators {
                     stateCount[0] = stateCount[1];
                     stateCount[1] += states.size();
                     depthA[0] = depth;
+                    for (int[] s : states) {
+                        String desc = GroupExplorer.describeStateForCache(candidate.nElements, s);
+                        
+                        cycleDescriptions.merge(desc, 1, Integer::sum);
+                        if (cycleDescriptions.size() > 25) throw new ParityStateCache.StateRejectedException();
+                    }
                 });
             } catch (ParityStateCache.StateRejectedException e) {
                 // Heuristic 1:
@@ -267,17 +284,6 @@ public class MirrorGenerators {
 
             //System.out.println(stateCountB[0] + " " + stateCount[1]);
 
-            // Heuristic 2: If the ratio of states is increasing, it's not going to converge quickly
-            boolean isDecreasing = ratio - lastRatio < 0.01;
-            if (!isDecreasing && stateCount[1] > startCheckingRatioIncreaseAtOrder) {
-                //iters = -2;
-                System.out.println("Ratio rate increase");
-                //break;
-            }
-            
-            
-            
-            lastRatio = ratio;
         }
 
         if (iters == -2) {
@@ -290,7 +296,7 @@ public class MirrorGenerators {
             System.out.println( GroupExplorer.generatorsToString(g.generator()));
             System.out.println(depthPeek.toString());
             lgGroupResults.add(GroupExplorer.generatorsToString(g.generator()));
-        } else if (candidate.order() >= 443520) {
+        } else if (candidate.order() >= 50000) {
             // Add genString to smallGroupGenerators
             List<String> gens = smallGroupGenerators.computeIfAbsent(candidate.order(), k -> Collections.synchronizedList(new ArrayList<String>()));
             gens.add(genString);

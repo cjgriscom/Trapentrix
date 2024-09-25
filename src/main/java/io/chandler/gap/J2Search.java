@@ -1,6 +1,10 @@
 package io.chandler.gap;
 
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map.Entry;
@@ -12,17 +16,126 @@ import io.chandler.gap.GroupExplorer.MemorySettings;
 
 public class J2Search {
 
-	public static void main(String[] args) {
-		Generator gen = getRenumberedGenerator();
+	// You can renumber the whole icochop by repeating the 
+	//     operations and assigning numbers to one face at a time
+
+	public static void main(String[] args) throws IOException {
+		
+		checkIcoChop2();
+	}
+
+	public static int[][] reorder5_5(int[][] src) {
+		ArrayList<int[]> out = new ArrayList<>();
+		for (int[] x : src) {
+			if (x.length == 5) out.add(0, x);
+			else out.add(x);
+		}
+		
+		return out.toArray(new int[out.size()][]);
+	}
+	public static void checkIcoChop2() throws IOException {
+
+		Generator gen = J2Search.getRenumberedGenerator_5circles(Generators.j2);
+
+		int srces_chk = 5;
+		String cat_check = "10p 10-cycles";
+
+		boolean takeSubgroups = false;
+
+		System.out.println(GroupExplorer.generatorsToString(GroupExplorer.renumberGenerators(gen.generator())));
+
+		ArrayList<int[][]> test = new ArrayList<>();
+
+		
+		PrintStream out = new PrintStream(new FileOutputStream("40p2.txt"));
+		GroupExplorer ge = new GroupExplorer(gen, 100, MemorySettings.FASTEST, new HashSet<>());
+		IcosahedralGenerators.exploreGroup(ge, (state, disc) -> {
+			if (disc.equals(cat_check)) test.add(GroupExplorer.stateToCycles(state));
+		});
+		ArrayList<Generator> found = new ArrayList<>();
+
+		HashMap<String, Integer> outputCounts = new HashMap<>();
+
+		nextGenerator:
+		for (int iii = 0; iii < test.size(); iii++) {
+			int[][] cycles = test.get(iii);
+			Generator vGen = new Generator(new int[][][] {
+				cycles,
+				gen.generator()[0],
+			});
+			GroupExplorer verify = new GroupExplorer(vGen, 100, MemorySettings.FASTEST, new HashSet<>());
+			int iter = verify.exploreStates(false, 1000, null);
+			if (iter == -1 ^ takeSubgroups) {
+				//System.out.println("found");
+				found.add(vGen);
+
+				out.println(GroupExplorer.generatorsToString(vGen.generator()));
+
+				HashMap<String, Integer> groups = new HashMap<>();
+				for (int[] cycle : cycles) {
+					HashMap<Integer, Integer> srcesS = new HashMap<>();
+					for (int i : cycle) {
+						srcesS.put((i-1)/5, srcesS.getOrDefault((i-1)/5, 0) + 1);
+					}
+					ArrayList<String> srces = new ArrayList<>();
+					for (Entry<Integer, Integer> entry : srcesS.entrySet()) {
+						//srces.add(entry.getValue() + "_" + entry.getKey());
+						srces.add(entry.getValue() + "");
+					}
+					Collections.sort(srces);
+					groups.put(srces.toString(), groups.getOrDefault(srces.toString(), 0) + 1);
+					//System.out.println(srces.toString());
+				}
+				ArrayList<Integer> values_sort = new ArrayList<>(groups.values());
+				Collections.sort(values_sort);
+				
+				String valuesString = "";
+				for (int i : values_sort) {
+					valuesString += (i + " ");
+				}
+				//System.out.print(iii + " / " + test.size() + ": ");
+				//System.out.println(valuesString);
+				if (valuesString.contains("5 5")) System.out.println(GroupExplorer.generatorsToString(vGen.generator()));
+				outputCounts.put(valuesString, outputCounts.getOrDefault(valuesString, 0) + 1);
+
+				//if (values_sort.contains(5)) System.out.println(GroupExplorer.generatorsToString(vGen.generator()));
+
+			}
+			//if (found.size() > 20) break;
+		}
+		//System.out.println(found);
+
+		System.out.println(outputCounts);
+		/*
+		Generator g = found.get(0);
+		for (int i = 1; i < 20; i++) {
+			g = Generator.combine(g, found.get(i));
+		}
+		GroupExplorer verify = new GroupExplorer(g, 100, MemorySettings.FASTEST, new HashSet<>());
+		int iter = verify.exploreStates(true, null);
+		*/
+		out.close();
+
+
+	}
+
+	public static void checkIcoChop() throws IOException {
+		Generator gen = getRenumberedGenerator_Icochop();
 
 		ArrayList<int[][]> p40_2Cycles = new ArrayList<>();
 		
+		PrintStream out = new PrintStream(new FileOutputStream("40p2.txt"));
 		GroupExplorer ge = new GroupExplorer(gen, 100, MemorySettings.FASTEST, new HashSet<>());
 		IcosahedralGenerators.exploreGroup(ge, (state, disc) -> {
+			out.println(disc);
+			out.println(GroupExplorer.cyclesToNotation(GroupExplorer.stateToCycles(state)));
 			if (disc.equals("40p 2-cycles")) {
 				p40_2Cycles.add(GroupExplorer.stateToCycles(state));
 			}
 		});
+		out.close();
+
+		System.exit(0);
 
 
 		TreeMap<String, Integer> occurances1Accum = new TreeMap<>();
@@ -60,23 +173,34 @@ public class J2Search {
 		 */
 	}
 
+	public static Generator getRenumberedGenerator_5circles(String generator) {
 
+		{
+			ArrayList<int[][]> test = new ArrayList<>();
 
-
-
-
-
-	public static int[][] reorder5_5(int[][] src) {
-		ArrayList<int[]> out = new ArrayList<>();
-		for (int[] x : src) {
-			if (x.length == 5) out.add(0, x);
-			else out.add(x);
+			GroupExplorer ge = new GroupExplorer(generator, MemorySettings.FASTEST, new HashSet<>());
+			IcosahedralGenerators.exploreGroup(ge, (state, disc) -> {
+				if (disc.equals("20p 5-cycles")) {
+					test.add(GroupExplorer.stateToCycles(state));
+				}
+			});
+			Generator vGen = new Generator(new int[][][] {
+				test.get(0),
+				GroupExplorer.parseOperationsArr(generator)[0],
+				GroupExplorer.parseOperationsArr(generator)[1],
+			});
+			GroupExplorer verify = new GroupExplorer(vGen, 100, MemorySettings.FASTEST, new HashSet<>());
+			int iter = verify.exploreStates(false, 10000, null);
+			if (iter == -1) {
+				//System.out.println("found");
+				return new Generator(GroupExplorer.renumberGenerators(vGen.generator()));
+			}
+			
 		}
-		
-		return out.toArray(new int[out.size()][]);
+		return null;
 	}
 
-	public static Generator getRenumberedGenerator() {
+	public static Generator getRenumberedGenerator_Icochop() {
 
 		GroupExplorer ge = new GroupExplorer(Generators.j2, MemorySettings.FASTEST);
 
@@ -149,26 +273,15 @@ public class J2Search {
 		// Manually renumber
 		int[][][] helper = new int[][][]{new int[][] {
 			 gen0Ren[0], gen1Ren[0], // Front faces
-			 gen1Ren[6], gen0Ren[5], // Entanglement of front faces
-
 			 gen0Ren[1], gen1Ren[1], // Back faces
-			 gen1Ren[7], gen0Ren[2], // Entanglement of back faces
 		}};
 
 		/*Remapref = [
 			(1,2,3,4,5)(6,7,8,9,10)
-			(11,1,12,13,2,14,15,3,16,17,4,18,19,5,20)
-			(21,8,22,23,7,24,25,6,26,27,10,28,29,9,30)
-			(31,32,33,34,35)(36,37,38,39,40)
-			(31,41,42,32,43,44,33,45,46,34,47,48,35,49,50)
-			(51,52,36,53,54,40,55,56,39,57,58,38,59,60,37)] */
+			(31,32,33,34,35)(36,37,38,39,40)] */
 		int[][] remap = new int[][] {
 			{1,2,3,4,5},{6,7,8,9,10},
-			{25,1,11,21,2,12,22,3,13,23,4,14,24,5,15},
-			{19,8,28,18,7,27,17,6,26,16,10,30,20,9,29}, // TODO might be wrong
-			{31,32,33,34,35},{36,37,38,39,40},
-			{31,41,51,32,42,52,33,43,53,34,44,54,35,45,55},
-			{57,47,36,56,46,40,60,50,39,59,49,38,58,48,37}
+			{31,32,33,34,35},{36,37,38,39,40}
 		};
 
 		int[][][] fulloriginal = Generator.combine(
@@ -192,13 +305,42 @@ public class J2Search {
 			}
 		}
 
-		// 60 faces should be expressed
+
 
 		int[][][] fullRenumberedRenumbered = new int[fullRenumbered.length][][];
+		
+
+		GroupExplorer numberer = new GroupExplorer(GroupExplorer.generatorsToString(new int[][][]{fullRenumbered[1], fullRenumbered[2]}), MemorySettings.FASTEST);
+
+
+		System.out.println("Numberer");
+		System.out.println(GroupExplorer.cyclesToNotation(numberer.parsedOperations.get(1)));
+		numberer.resetElements(false);
+
+		TreeSet<Integer> remainingIndexGroups = new TreeSet<>();
+		for (int i = 1; i <= 20; i++) remainingIndexGroups.add(i);
+		remainingIndexGroups.remove(5/5);
+		remainingIndexGroups.remove(10/5);
+		remainingIndexGroups.remove(35/5);
+		remainingIndexGroups.remove(40/5);
+
+		numberer.exploreStates(true, (states, depth) -> {
+			for (int[] state : states) {
+				if (!map.containsKey(state[0])) {
+					int indexGroup = remainingIndexGroups.pollFirst();
+					for (int ele = 0; ele < 5; ele++) {
+						map.put(state[ele], (indexGroup-1)*5 + ele + 1);
+					}
+				}
+			}
+		});
+		
 		
 		TreeSet<Integer> unusedRemaps = new TreeSet<>();
 		for (int i = 1; i <= 100; i++) unusedRemaps.add(i);
 		unusedRemaps.removeAll(map.keySet());
+
+		System.out.println(unusedRemaps.size());
 
 		for (int i = 0; i < fullRenumbered.length; i++) {
 			fullRenumberedRenumbered[i] = new int[fullRenumbered[i].length][];
@@ -207,11 +349,6 @@ public class J2Search {
 				for (int k = 0; k < fullRenumbered[i][j].length; k++) {
 					int old = fullRenumbered[i][j][k];
 					Integer n = map.get(old);
-					if (n == null) {
-						n = unusedRemaps.pollFirst();
-						if (n == null) throw new IllegalArgumentException("No remap value for " + old);
-						map.put(old, n);
-					}
 					//System.out.println(fullRenumbered[i][j][k] + " - " + n);
 					fullRenumberedRenumbered[i][j][k] = n;
 				}

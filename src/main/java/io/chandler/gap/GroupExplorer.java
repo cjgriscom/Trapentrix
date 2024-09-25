@@ -26,7 +26,7 @@ public class GroupExplorer implements AbstractGroupProperties {
     private Set<State> stateMapTmp;
 
     public int[] elements;
-    private List<int[][]> parsedOperations;
+    public List<int[][]> parsedOperations;
     public int nElements;
     public final MemorySettings mem;
     public boolean multithread;

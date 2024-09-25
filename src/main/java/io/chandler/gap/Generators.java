@@ -54,6 +54,9 @@ public class Generators {
     
     public static final String l2_11_12pt = "[(1,10)(2,5)(3,7)(4,8)(6,9)(11,12),(1,5,9)(2,7,4)(3,8,6)(10,12,11)]";
 
+    // PSL(3,3)
+    // This was generated on PI as (V6L,V9L,V31R,V32R),(V5R,V8R,V20R)
+    public static final String psl_3_3 = "[(1,2,3)(4,5,6)(7,8,9)(10,11,12),(13,7,3)(2,10,6)(8,11,9)]";
 
     //https://web.archive.org/web/20030301122101/http://www.mat.bham.ac.uk/atlas/html/WF4.html
     public static final String wf4 = "[(2,3)(4,6)(5,7)(8,10)(9,12)(11,13)(14,17)(15,19)(16,21)(18,20)(22,23),(1,2)(3,4,5)(6,8,11,10,7,9)(12,14,18,21,20,15)(13,16)(17,19,22)(23,24)]";

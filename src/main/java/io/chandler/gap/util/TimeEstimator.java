@@ -26,4 +26,18 @@ public class TimeEstimator {
             " | Estimated time remaining: " + remainingTimeStr);
 
     }
+
+
+    public int checkQuit() {
+        try {
+            // Check for key press
+            while (System.in.available() > 0) {
+                int i = System.in.read();
+                if (i == 'q' || i == 'Q') {
+                    return -1;
+                }
+            }
+        } catch (Exception e) {}
+        return 0;
+    }
 }
