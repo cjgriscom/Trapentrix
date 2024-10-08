@@ -12,6 +12,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Scanner;
 import java.util.Set;
 import java.util.TreeMap;
@@ -49,6 +50,14 @@ public class CubicGenerators {
         "(17,20,23,15)(13,18,21,24)(16,19,22,14)" + // Face 6 CCW
         "]";
 
+    public static final String cubicDiSymmetries = "[" +
+        "(5,6,8,7)(3,24,10,17)(4,22,9,19)" + // Face 1 CW
+        "(13,15,16,14)(1,23,12,18)(2,21,11,20)" + // Face 6 CCW
+        "," +
+        "(1,2,4,3)(5,20,16,24)(6,19,15,23)" +
+        "(9,11,12,10)(13,21,8,17)(14,22,7,18)" +
+        "]";
+
 	public static int[][] getFace180Symm(int faceIndex) {
 		String face1Symm = GroupExplorer.generatorsToString(new int[][][] {
 			GroupExplorer.parseOperations(CubicGenerators.cubicPISymmetries3).get(faceIndex)});
@@ -74,10 +83,164 @@ public class CubicGenerators {
 
         //vertexColorSearchPI();
 
-        doExhaustive3DSearch();
+        //doExhaustive3DSearchPI();
+
+        //diTests();
+        printM24_dot_puzzle_Depth_Classes();
 	}
 
-    private static void doExhaustive3DSearch() {
+    private static void printM24_dot_puzzle_Depth_Classes() {
+
+        String m24_pidot = "[(1,10,2)(6,19,5)(9,11,7)(13,12,14)(18,20,17)(23,21,22),(11,14,12)(8,4,7)(23,15,24)(16,13,17)(1,5,3)(19,6,21),(15,17,13)(22,9,24)(19,18,20)(2,16,3)(11,7,10)(4,8,6),(20,23,21)(16,3,18)(14,24,15)(8,22,9)(5,1,4)(10,2,12),(2,10,1)(5,19,6)(7,11,9)(14,12,13)(17,20,18)(22,21,23),(12,14,11)(7,4,8)(24,15,23)(17,13,16)(3,5,1)(21,6,19),(13,17,15)(24,9,22)(20,18,19)(3,16,2)(10,7,11)(6,8,4),(21,23,20)(18,3,16)(15,24,14)(9,22,8)(4,1,5)(12,2,10)]";
+
+
+
+        int nElements = 24;
+        int cacheGB = 32;
+        int batch = 10_000_000;
+        try (
+            Scanner scanner = new Scanner(System.in);
+            InteractiveCachePair cachePair =
+                new InteractiveCachePair(scanner, cacheGB, nElements, batch)) {
+
+            GroupExplorer group = new GroupExplorer(m24_pidot, MemorySettings.COMPACT,
+                    cachePair.cache, cachePair.cache_incomplete, cachePair.cache_tmp, true);
+
+            // Explore conjugacy classes for each depth
+            group.exploreStates(false, (states, depth) -> {
+                System.out.println("Depth " + depth + ": " + states.size() + " states");
+                HashMap<String,Integer> conjugacyClasses = new HashMap<>();
+                for (int[] state : states) {
+                    String conjugacyClass = GroupExplorer.describeState(24, state);
+                    Integer count = conjugacyClasses.get(conjugacyClass);
+                    conjugacyClasses.put(conjugacyClass, count == null ? 1 : count + 1);
+                }
+                for (Entry<String,Integer> conjugacyClass : conjugacyClasses.entrySet()) {
+                    System.out.println("  " + conjugacyClass.getKey() + ": " + conjugacyClass.getValue());
+                }
+            });
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static List<int[][][]> getEdgeAnd4FaceGeneratorsForEdge(int edgeIndex) {
+        ArrayList<int[][][]> generators = new ArrayList<>();
+        int[][] gen0 = DeltoidalIcositetrahedron.cubeEdgeToDifacesPairs[edgeIndex];
+
+        // Now select 4 faces that don't conflict with contents of gen0
+        HashSet<Integer> usedFaces = new HashSet<>();
+        for (int[] faces : gen0) for (int face : faces) usedFaces.add(face);
+
+        List<int[]> comb = Permu.generateCombinations(6, 4); // 6 choose 4
+        nextPermu0: for (int[] cubicVertices : comb) {
+            for (int vertex : cubicVertices) {
+                for (int face : DeltoidalIcositetrahedron.cubeFaceToDifaces[vertex]) {
+                    if (usedFaces.contains(face)) {
+                        continue nextPermu0;
+                    }
+                }
+            }
+            boolean[][] fixedCycleIndices = new boolean[1][4];
+            fixedCycleIndices[0][0] = true;
+            int[][][] generatorSrc = new int[1][4][];
+            for (int i = 0; i < 4; i++) {
+                generatorSrc[0][i] = DeltoidalIcositetrahedron.cubeFaceToDifaces[cubicVertices[i]];
+            }
+            for (int[][][] inversions : CycleInverter.generateInvertedCycles(fixedCycleIndices, generatorSrc)) {
+                generators.add(new int[][][] {
+                    new int[][] {
+                        gen0[0], gen0[1], inversions[0][0], inversions[0][1], inversions[0][2], inversions[0][3]
+                    }
+                });
+            }
+        }
+        return generators;
+    }
+    private static List<int[][][]> getEdgeAnd4x4FoldGeneratorsForFaceOrEdge(int edgeIndex) {
+        ArrayList<int[][][]> generators = new ArrayList<>();
+        int[][] gen0;
+        if (edgeIndex <= 5) gen0 = DeltoidalIcositetrahedron.cubeFaceToDifacesPairs[edgeIndex];
+        else gen0 = DeltoidalIcositetrahedron.cubeEdgeToDifacesPairs[edgeIndex-6];
+
+        List<int[]> comb = Permu.generateCombinations(6+12, 4); // 6 choose 4
+        nextPermu0: for (int[] cubicVertices : comb) {
+            // Now select 4 faces that don't conflict with contents of gen0
+            HashSet<Integer> usedFaces = new HashSet<>();
+            for (int[] faces : gen0) for (int face : faces) usedFaces.add(face);
+    
+            for (int vertex : cubicVertices) {
+                int[] op;
+                if (vertex <= 5) op = DeltoidalIcositetrahedron.cubeFaceToDifaces[vertex];
+                else op = DeltoidalIcositetrahedron.cubeEdgeToDifaces[vertex-6];
+                for (int face : op) {
+                    if (usedFaces.contains(face)) {
+                        continue nextPermu0;
+                    }
+                    usedFaces.add(face);
+                }
+            }
+            boolean[][] fixedCycleIndices = new boolean[1][4];
+            fixedCycleIndices[0][0] = true;
+            int[][][] generatorSrc = new int[1][4][];
+            for (int i = 0; i < 4; i++) {
+                if (cubicVertices[i] <= 5) generatorSrc[0][i] = DeltoidalIcositetrahedron.cubeFaceToDifaces[cubicVertices[i]];
+                else generatorSrc[0][i] = DeltoidalIcositetrahedron.cubeEdgeToDifaces[cubicVertices[i]-6];
+            }
+            for (int[][][] inversions : CycleInverter.generateInvertedCycles(fixedCycleIndices, generatorSrc)) {
+                generators.add(new int[][][] {
+                    new int[][] {
+                        gen0[0], gen0[1], inversions[0][0], inversions[0][1], inversions[0][2], inversions[0][3]
+                    }
+                });
+            }
+        }
+        return generators;
+    }
+
+
+    private static List<int[][][]> get8XVertexCombinations() {
+        ArrayList<int[][][]> generators = new ArrayList<>();
+        boolean[][] fixedCycleIndices = new boolean[1][8];
+        fixedCycleIndices[0][0] = true;
+        int[][][] generatorSrc = new int[1][8][];
+        for (int i = 0; i < 8; i++) {
+            generatorSrc[0][i] = DeltoidalIcositetrahedron.cubeVertexToDifaces[i];
+        }
+        for (int[][][] inversions : CycleInverter.generateInvertedCycles(fixedCycleIndices, generatorSrc)) {
+            generators.add(new int[][][] {
+                inversions[0].clone(),
+            });
+        }
+        return generators;
+    }
+
+    private static void diTests() {
+
+        Set<State> stateCache = new LongStateCache(9,24);
+        ArrayList<String> results = new ArrayList<>();
+        HashMap<Integer, List<String>> smallGroupGenerators = new HashMap<>();
+
+        List<int[][][]> generators0 = getEdgeAnd4x4FoldGeneratorsForFaceOrEdge(12);
+    
+        for (int[][][] gen0 : generators0) {
+                Generator g = new Generator(new int[][][] {
+                        gen0[0],
+                    });
+                    g = Generator.combine(g, new Generator(GroupExplorer.parseOperationsArr(cubicDiSymmetries)));
+                    System.out.println(GroupExplorer.generatorsToString(g.generator()));
+                    stateCache.clear();
+                    checkGenerator(true, g, results, smallGroupGenerators, stateCache);
+            
+        }
+    
+    
+        
+        System.out.println("Found " + results.size() + " / " + smallGroupGenerators.size() + " generators");
+
+    }
+
+    private static void doExhaustive3DSearchPI() {
         VertexColorSearch2 vcs = VertexColorSearch2.pentagonalIcositrahedron_3D_180();
         System.out.println(vcs.generateAllSelections().size());
         vcs.filterOutIdenticalGenerators();

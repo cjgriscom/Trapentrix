@@ -11,6 +11,7 @@ import java.util.function.BiConsumer;
 
 import io.chandler.gap.GroupExplorer.Generator;
 import io.chandler.gap.GroupExplorer.MemorySettings;
+import io.chandler.gap.cache.LongStateCache;
 
 import static io.chandler.gap.GeneratorPairSearch.findGeneratorPairs;
 
@@ -94,7 +95,30 @@ public class IcosahedralGenerators {
         //M11_12_VertexAxis_EdgePcs();
         //bauhinia_ree3_3();
         //M24_Search();
-        M12_snub_tetrahedron();
+        //M12_snub_tetrahedron();
+        printM12_dot_puzzle_Depth_Classes();
+
+        
+    }
+
+    public static void printM12_dot_puzzle_Depth_Classes() {
+
+        String m12_dodot = "[(8,9,11)(12,1,5)(7,6,4),(1,8,5)(10,9,2)(12,4,3),(9,1,2)(7,8,11)(10,3,6),(4,5,7)(2,12,3)(6,11,10),(11,9,8)(5,1,12)(4,6,7),(5,8,1)(2,9,10)(3,4,12),(2,1,9)(11,8,7)(6,3,10),(7,5,4)(3,12,2)(10,11,6)]";
+        GroupExplorer group = new GroupExplorer(m12_dodot, MemorySettings.COMPACT, new LongStateCache(8,24), new HashSet<>(), new HashSet<>(), false);
+
+        // Explore conjugacy classes for each depth
+        group.exploreStates(false, (states, depth) -> {
+            System.out.println("Depth " + depth + ": " + states.size() + " states");
+            HashMap<String,Integer> conjugacyClasses = new HashMap<>();
+            for (int[] state : states) {
+                String conjugacyClass = GroupExplorer.describeState(24, state);
+                Integer count = conjugacyClasses.get(conjugacyClass);
+                conjugacyClasses.put(conjugacyClass, count == null ? 1 : count + 1);
+            }
+            for (Entry<String,Integer> conjugacyClass : conjugacyClasses.entrySet()) {
+                System.out.println("  " + conjugacyClass.getKey() + ": " + conjugacyClass.getValue());
+            }
+        });
     }
 
 
